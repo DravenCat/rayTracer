@@ -454,23 +454,24 @@ int main(int argc, char *argv[]) {
             col.G = 0;
             col.B = 0;
 
-            if (antialiasing > 1e-6) {
+            if (antialiasing) {
+                // 5-sampled anti-aliasing
                 struct colourRGB sample_RGB;
-                for (int k = 0; k < antialiasing; ++k) {
+                for (int k = 0; k < 5; ++k) {
                     // Calculate sample point in camera coordinate
                     // the sampling point should be with in [cam->wl + i * du, cam->wl + (i+1) * du) on x-coord
                     //                                      [cam->wl + j * du, cam->wl + (j+1) * du) on y-coord
-                    pc.px = cam->wl + i * du + ((double) rand()/ (double) RAND_MAX) * du;
-                    pc.py = cam->wt + j * dv + ((double) rand()/ (double) RAND_MAX) * dv;
+                    pc.px = cam->wl + i * du + ((double) rand()/ RAND_MAX) * du;
+                    pc.py = cam->wt + j * dv + ((double) rand()/ RAND_MAX) * dv;
 
                     calculatePixel(&pc, &sample_RGB, cam, &background);
                     col.R += sample_RGB.R;
                     col.G += sample_RGB.G;
                     col.B += sample_RGB.B;
                 }
-                col.R = col.R / antialiasing;
-                col.G = col.G / antialiasing;
-                col.B = col.B / antialiasing;
+                col.R = col.R / 5.0;
+                col.G = col.G / 5.0;
+                col.B = col.B / 5.0;
             } else {
                 // Calculate pc in camera coordinate
                 pc.px = cam->wl + i * du;
