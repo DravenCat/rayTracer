@@ -2,5 +2,5 @@
 cmake-build-debug
 CMakeLists.txt
 RayTracer.exe
-test.ppm
+*.ppm
 autotester_id.txt

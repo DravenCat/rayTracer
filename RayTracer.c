@@ -281,6 +281,28 @@ void rayTrace(struct ray3D *ray, int depth, struct colourRGB *col, struct object
     }
 }
 
+void calculatePixel(struct point3D *pc, struct colourRGB *col, struct view *cam, struct colourRGB *background) {
+    // init variable
+    struct point3D d;
+    struct ray3D ray;
+    pc->pz = cam->f;
+    pc->pw = 1;
+
+    // Convert pc into pw and calculate the direction of ray
+    matVecMult(cam->C2W, pc); // pw = M_cw' * pc
+    memcpy(&d, pc, sizeof(struct point3D));
+    subVectors(&cam->e, &d); // d = pw - e
+    normalize(&d);
+
+    // Initialize the ray
+    initRay(&ray, &cam->e, &d);
+    normalize(&ray.d);
+
+    // Trace the ray of the pixel
+    memcpy(col, background, sizeof(struct colourRGB));
+    rayTrace(&ray, 1, col, NULL);
+}
+
 int main(int argc, char *argv[]) {
     // Main function for the raytracer. Parses input parameters,
     // sets up the initial blank image, and calls the functions
@@ -427,25 +449,35 @@ int main(int argc, char *argv[]) {
             // TO DO - complete the code that should be in this loop to do the
             //         raytracing!
             ///////////////////////////////////////////////////////////////////
-            // Calculate pc in camera coordinate
-            pc.px = cam->wl + i * du;
-            pc.py = cam->wt + j * dv;
-            pc.pz = cam->f;
-            pc.pw = 1;
+            // initialize the final pixel color
+            col.R = 0;
+            col.G = 0;
+            col.B = 0;
 
-            // Convert pc into pw and calculate the direction of ray
-            matVecMult(cam->C2W, &pc); // pw = M_cw' * pc
-            memcpy(&d, &pc, sizeof(struct point3D));
-            subVectors(&e, &d); // d = pw - e
-            normalize(&d);
+            if (antialiasing > 1e-6) {
+                struct colourRGB sample_RGB;
+                for (int k = 0; k < antialiasing; ++k) {
+                    // Calculate sample point in camera coordinate
+                    // the sampling point should be with in [cam->wl + i * du, cam->wl + (i+1) * du) on x-coord
+                    //                                      [cam->wl + j * du, cam->wl + (j+1) * du) on y-coord
+                    pc.px = cam->wl + i * du + ((double) rand()/ (double) RAND_MAX) * du;
+                    pc.py = cam->wt + j * dv + ((double) rand()/ (double) RAND_MAX) * dv;
 
-            // Initialize the ray
-            initRay(&ray, &cam->e, &d);
-            normalize(&ray.d);
+                    calculatePixel(&pc, &sample_RGB, cam, &background);
+                    col.R += sample_RGB.R;
+                    col.G += sample_RGB.G;
+                    col.B += sample_RGB.B;
+                }
+                col.R = col.R / antialiasing;
+                col.G = col.G / antialiasing;
+                col.B = col.B / antialiasing;
+            } else {
+                // Calculate pc in camera coordinate
+                pc.px = cam->wl + i * du;
+                pc.py = cam->wt + j * dv;
 
-            // Trace the ray of the pixel
-            memcpy(&col, &background, sizeof(struct colourRGB));
-            rayTrace(&ray, 1, &col, NULL);
+                calculatePixel(&pc, &col, cam, &background);
+            }
 
             // Set the final colorRGB of the pixel
             *(rgbIm + 3 * (sx * j + i)) = (unsigned char) (col.R * 255.0); // Red
