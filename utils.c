@@ -493,6 +493,12 @@ void planeCoordinates(struct object3D *plane, double a, double b, double *x, dou
     /////////////////////////////////
     // TO DO: Complete this function.
     /////////////////////////////////
+    struct point3D *p0 = newPoint(2 * a - 1, 2 * b - 1, 0);
+    matVecMult(plane->T, p0);
+    *x = p0->px;
+    *y = p0->py;
+    *z = p0->pz;
+    free(p0);
 }
 
 void sphereCoordinates(struct object3D *sphere, double a, double b, double *x, double *y, double *z) {
@@ -503,6 +509,14 @@ void sphereCoordinates(struct object3D *sphere, double a, double b, double *x, d
     /////////////////////////////////
     // TO DO: Complete this function.
     /////////////////////////////////
+    double tmp = sqrt(1 - pow(cos(b), 2));
+
+    struct point3D *p0 = newPoint(tmp * cos(a), tmp * sin(a), cos(b));
+    matVecMult(sphere->T, p0);
+    *x = p0->px;
+    *y = p0->py;
+    *z = p0->pz;
+    free(p0);
 }
 
 void cylCoordinates(struct object3D *cyl, double a, double b, double *x, double *y, double *z) {
@@ -523,6 +537,9 @@ void planeSample(struct object3D *plane, double *x, double *y, double *z) {
     /////////////////////////////////
     // TO DO: Complete this function.
     /////////////////////////////////
+    double a = (double) rand() / (double) RAND_MAX;
+    double b = (double) rand() / (double) RAND_MAX;
+    (plane->surfaceCoords)(plane, a, b, x, y, z);
 }
 
 void sphereSample(struct object3D *sphere, double *x, double *y, double *z) {
@@ -534,6 +551,10 @@ void sphereSample(struct object3D *sphere, double *x, double *y, double *z) {
     /////////////////////////////////
     // TO DO: Complete this function.
     /////////////////////////////////
+    double a = 2 * PI * (double) rand() / RAND_MAX;
+    double b = PI * ((double) rand() / RAND_MAX - 0.5);
+
+    (sphere->surfaceCoords)(sphere, a, b, x, y, z);
 }
 
 void cylSample(struct object3D *cyl, double *x, double *y, double *z) {
@@ -692,6 +713,19 @@ void addAreaLight(double sx, double sy, double nx, double ny, double nz, \
     //       light source's object surface within rtShade(). This is a bit more tricky
     //       but reduces artifacts significantly. If you do that, then there is no need
     //       to insert a series of point lightsources in this function.
+    struct object3D *areaLS = newPlane(1, 1, 1, 1, r, g, b, 0, 1, 0);
+    if (!areaLS) fprintf(stderr, "Out of memory allocating light source!\n");
+    else {
+        areaLS->isLightSource = 1;
+        Scale(areaLS, sx, sy, 1);
+        // set the normal
+        RotateX(areaLS, nx);
+        RotateY(areaLS, ny);
+        RotateZ(areaLS, nz);
+        Translate(areaLS, tx, ty, tz);
+        invert(&areaLS->T[0][0],&areaLS->Tinv[0][0]);
+        insertObject(areaLS,o_list);
+    }
 }
 
 ///////////////////////////////////
