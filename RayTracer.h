@@ -67,6 +67,7 @@ struct ray3D{
 
 	/* You may add data here to keep track of any values associated */
 	/* with this ray when implementing advanced raytracing features */
+    unsigned char insideOut;
 };
 
 /*
@@ -141,6 +142,7 @@ struct object3D{
         struct image *photonMap;			// Photon map for this object
 	struct image *normalMap;			// Normal map for this object
 	struct image *alphaMap;				// Alpha map for the object
+    void (*lsRandomRay)(struct object3D *obj, struct ray3D *ray, struct point3D *c);
 
 
 	// Material properties
