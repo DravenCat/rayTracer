@@ -270,14 +270,12 @@ void rayTrace(struct ray3D *ray, int depth, struct colourRGB *col, struct object
 
     findFirstHit(ray, &lambda, Os, &obj, &p, &n, &a, &b);
     if (lambda > 1e-6) { // if hit an object
+        ray->insideOut = Os == obj ? 0 : 1;
         rtShade(obj, &p, &n, ray, depth, a, b, &I);
         // colRGB in  [0, 1]
         col->R = max(0, I.R);
         col->G = max(0, I.G);
         col->B = max(0, I.B);
-        col->R = min(1, I.R);
-        col->G = min(1, I.G);
-        col->B = min(1, I.B);
     } else { // hit nothing
         col->R = 0;
         col->G = 0;
