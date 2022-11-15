@@ -214,19 +214,23 @@ void findFirstHit(struct ray3D *ray, double *lambda, struct object3D *Os, struct
     double lambda_min = -1.0;
     *lambda = -1.0;
 
-    // traverse all the object
+    // traverse all the object that is not itself or light source
     for (struct object3D *i = object_list; i != NULL; i = i->next) {
-        if (i != Os){
-            double obj_lambda = -1;
+        if (i != Os && !i->isLightSource){
+            struct point3D tmp_p, tmp_n;
+            double tmp_a, tmp_b;
 
             //find intersection
-            (i->intersect)(i, ray, &obj_lambda, p, n, a, b);
+            (i->intersect)(i, ray, &lambda_min, &tmp_p, &tmp_n, &tmp_a, &tmp_b);
 
             // replace first hit with the smallest positive lambda
-            if (((lambda_min + 1e-6 <= 0) || (obj_lambda + 1e-6 < lambda_min)) && obj_lambda > 1e-6) {
-                lambda_min = obj_lambda;
-                *(lambda) = lambda_min;
-                *(obj) = i;
+            if (lambda_min > 0 && (lambda_min < *lambda || *lambda <= 0)) {
+                *lambda = lambda_min;
+                memcpy(p, &tmp_p, sizeof(struct point3D));
+                memcpy(n, &tmp_n, sizeof(struct point3D));
+                *a = tmp_a;
+                *b = tmp_b;
+                *obj = i;
             }
         }
     }
