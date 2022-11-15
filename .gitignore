@@ -4,3 +4,4 @@ CMakeLists.txt
 *.exe
 *.ppm
 autotester_id.txt
+buildscene2.c
