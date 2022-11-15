@@ -80,6 +80,16 @@ struct pointLS *newPLS(struct point3D *p0, double r, double g, double b) {
     return (ls);
 }
 
+// return a new ray starting at p0 and has direction d
+struct ray3D *newRay(struct point3D *p0, struct point3D *d) {
+    struct ray3D *ray = (struct ray3D *) calloc(1,sizeof(struct ray3D));
+    if (!ray) fprintf(stderr,"Out of memory allocating ray structure!\n");
+    else {
+        initRay(ray, p0, d, 1);
+    }
+    return (ray);
+}
+
 /////////////////////////////////////////////
 // Ray and normal transforms
 /////////////////////////////////////////////
@@ -91,7 +101,7 @@ inline void rayTransform(struct ray3D *ray_orig, struct ray3D *ray_transformed, 
     // TO DO: Complete this function
     ///////////////////////////////////////////
     // a' = A^-1*(a-t)
-    initRay(ray_transformed, &ray_orig->p0, &ray_orig->d);
+    initRay(ray_transformed, &ray_orig->p0, &ray_orig->d, ray_orig->insideOut);
     matVecMult(obj->Tinv, &ray_transformed->p0);
 
     // d' = A^-1*d
@@ -173,6 +183,7 @@ newPlane(double ra, double rd, double rs, double rg, double r, double g, double 
         plane->intersect = &planeIntersect;
         plane->surfaceCoords = &planeCoordinates;
         plane->randomPoint = &planeSample;
+        plane->lsRandomRay = &planeLSRandomRay;
         plane->texImg = NULL;
         plane->photonMap = NULL;
         plane->normalMap = NULL;
@@ -220,6 +231,7 @@ newSphere(double ra, double rd, double rs, double rg, double r, double g, double
         sphere->intersect = &sphereIntersect;
         sphere->surfaceCoords = &sphereCoordinates;
         sphere->randomPoint = &sphereSample;
+        sphere->lsRandomRay = &sphereLSRandomRay;
         sphere->texImg = NULL;
         sphere->photonMap = NULL;
         sphere->normalMap = NULL;
@@ -261,6 +273,7 @@ newCyl(double ra, double rd, double rs, double rg, double r, double g, double b,
         cylinder->intersect = &cylIntersect;
         cylinder->surfaceCoords = &cylCoordinates;
         cylinder->randomPoint = &cylSample;
+        cylinder->lsRandomRay = &cylinderLSRandomRay;
         cylinder->texImg = NULL;
         cylinder->photonMap = NULL;
         cylinder->normalMap = NULL;
@@ -320,6 +333,17 @@ void planeIntersect(struct object3D *plane, struct ray3D *ray, double *lambda, s
     if (fabs(p->px) > 1 + 1e-6 || fabs(p->py) > 1 + 1e-6) { // outside the canonical plane
         *lambda = -1;
         return;
+    } else {
+        // compute a and b
+        *a = (p->px + 1.0) / 2.0;
+        *b = (p->py + 1.0) / 2.0;
+
+        // normal mapping
+        if (plane->normalMap) {
+            // initialize the transform matrix
+            rgb_to_coord(&canonical_normal, plane, *a, *b);
+            normalize(&canonical_normal);
+        }
     }
 
     // get the actual intersection point
@@ -340,6 +364,7 @@ void sphereIntersect(struct object3D *sphere, struct ray3D *ray, double *lambda,
     // Get the transformed ray
     struct ray3D ray_trans;
     rayTransform(ray, &ray_trans, sphere);
+    struct point3D canonical_normal;
 
     double A = dot(&ray_trans.d, &ray_trans.d); // A = d * d
     double B = dot(&ray_trans.p0, &ray_trans.d); // B = p0 * d
@@ -367,24 +392,31 @@ void sphereIntersect(struct object3D *sphere, struct ray3D *ray, double *lambda,
     }
 
     // check the intersection is in forward direction
-    if (*lambda <= 0) {
+    if (*lambda < 0) {
         *lambda = -1;
         return;
-    }
+    } else {
+        (ray_trans.rayPos)(&ray_trans, *lambda, p);
+        memcpy(&canonical_normal, p, sizeof(struct point3D));
+        memcpy(n, p, sizeof(struct point3D));
 
-    // Get the actual intersection
+        *a = acos(p->px / sqrt(1 - p->pz * p->pz)) / (2 * PI);
+        *b = asin(p->pz) / PI + 0.5;
+
+        // normal mapping
+        if (sphere->normalMap) {
+            rgb_to_coord(n, sphere, *a, *b);
+
+            struct point3D *tangent = newPoint(p->py, -p->px, 0);
+            tbn_transform(&canonical_normal, tangent, n);
+            free(tangent);
+        }
+    }
+    // get the actual intersection point
     (ray_trans.rayPos)(ray, *lambda, p);
 
-    // normal = 2p for the canonical sphere f(x) = p^2 - R^2 = 0
-    struct point3D canonical_normal;
-    (ray_trans.rayPos)(&ray_trans, *lambda, &canonical_normal);
-    canonical_normal.px *= 2;
-    canonical_normal.py *= 2;
-    canonical_normal.pz *= 2;
-    normalize(&canonical_normal);
-
-    // Get the actual intersection
-    normalTransform(&canonical_normal, n, sphere);
+    // get the actual normal
+    normalTransform(n, n, sphere);
 }
 
 void cylIntersect(struct object3D *cylinder, struct ray3D *r, double *lambda, struct point3D *p, struct point3D *n,
@@ -398,6 +430,7 @@ void cylIntersect(struct object3D *cylinder, struct ray3D *r, double *lambda, st
     // Get the transformed ray
     struct ray3D ray_trans;
     rayTransform(r, &ray_trans, cylinder);
+    struct point3D canonical_normal;
 
     // Calculate whether the ray hit the wall
     struct point3D *ray_trans_p0xy = newPoint(ray_trans.p0.px, ray_trans.p0.py, 0);
@@ -434,53 +467,176 @@ void cylIntersect(struct object3D *cylinder, struct ray3D *r, double *lambda, st
     }
 
     // Get the actual intersection with the quadratic wall
-    if (*lambda + 1e-6 > 0){
+    if (*lambda + 1e-6 >= 0){
         // check |z| <= 1
         double z = ray_trans.p0.pz + ((*lambda) * (ray_trans.d.pz));
         if (fabs(z) - 1 > 1e-6) {
             *lambda = -1;
         } else {
-            ray_trans.rayPos(r, *lambda, p);
-
-            // f(x) = x^2 + y^2 - r^2 = 0 => normal = [2x 2y 0]
-            struct point3D canonical_normal;
-            (ray_trans.rayPos)(&ray_trans, *lambda, &canonical_normal);
-            canonical_normal.px *= 2;
-            canonical_normal.py *= 2;
+            (ray_trans.rayPos)(&ray_trans, *lambda, p);
+            memcpy(&canonical_normal, p, sizeof(struct point3D));
+            memcpy(n, p, sizeof(struct point3D));
             canonical_normal.pz = 0;
-            normalize(&canonical_normal);
-            normalTransform(&canonical_normal, n, cylinder);
+            n->pz = 0;
+
+            // a and b
+            *a = atan(p->py / p->px) / PI + 0.5;
+            *b = p->pz + 0.5;
+
+            // normal mapping
+            if (cylinder->normalMap) {
+                rgb_to_coord(n, cylinder, *a, *b);
+                struct point3D *tangent = newPoint(p->py, -p->px, 0);
+                tbn_transform(&canonical_normal, tangent, n);
+                free(tangent);
+            }
         }
-    }
+        // transfer intersection point to specific coordinate
+        (r->rayPos)(r, *lambda, p);
 
-    // Intersect the ray with the plans containing the base or cap i.e. z = +-1
-    struct point3D cap_p, base_p;
-    double lambda_cap = (1 - ray_trans.p0.pz) / ray_trans.d.pz;
-    double lambda_base = (-1 - ray_trans.p0.pz) / ray_trans.d.pz;
-    double min_lambda = -1;
-
-    // check x^2 + y^2 < 1 for cap and base, and find the minimum
-    ray_trans.rayPos(&ray_trans, lambda_cap, &cap_p);
-    ray_trans.rayPos(&ray_trans, lambda_base, &base_p);
-    if (lambda_cap > 1e-6 && (cap_p.px * cap_p.px + cap_p.py * cap_p.py + 1e-6) < 1)
-        min_lambda = (*lambda == -1)? lambda_cap : min(*lambda, lambda_cap);
-    if (lambda_base > 1e-6 && (base_p.px * base_p.px + base_p.py * base_p.py + 1e-6) < 1)
-        min_lambda = (*lambda == -1)? lambda_base : min(*lambda, lambda_base);
-
-    if (fabs(min_lambda - *lambda) < 1e-6) return; // lambda unchanged
-    else {// changed lambda
-        *lambda = min_lambda;
-        ray_trans.rayPos(r, *lambda, p);
-        // n = [0 0 +-1 1] for the base/cap
-        struct point3D canonical_normal;
-        canonical_normal.px = 0;
-        canonical_normal.py = 0;
-        canonical_normal.pz = ray_trans.p0.pz + ((*lambda) * (ray_trans.d.pz));
-        canonical_normal.pw = 1;
-        normalize(&canonical_normal);
-        normalTransform(&canonical_normal, n, cylinder);
+        // transfer cylinder's normal to specific coordinate
+        normalTransform(n, n, cylinder);
     }
 }
+
+
+//void planeLSRandomRay(struct object3D *plane, struct ray3D *ray, struct point3D *c) {
+//    if (plane->isLightSource) {
+//        // Return plane Ls normal which faces image plane
+//        double lsx, lsy, lsz;
+//        (plane->randomPoint)(plane, &lsx, &lsy, &lsz);
+//        struct point3D *rand_p = newPoint(lsx, lsy, lsz);
+//        // p to camera direction
+//        struct point3D *c_d = newPoint(c->px-rand_p->px, c->py-rand_p->py, c->pz-rand_p->pz);
+//
+//        // transfer to point on canonical obj
+//        matVecMult(plane->Tinv, rand_p);
+//        matVecMult(plane->Tinv, c_d);
+//        struct point3D *plane_n = newPoint(rand_p->px, rand_p->py, 1);
+//        if (dot(c_d, plane_n) < 0) {
+//            plane_n->px *= -1;
+//            plane_n->py *= -1;
+//            plane_n->pz *= -1;
+//        }
+//        free(c_d);
+//
+//        // normal rotate in [-PI/2, PI/2] to get a random ray direction
+//        double angle = (PI * (double) rand() / RAND_MAX) - PI / 2;
+//        struct point3D *ray_d = newPoint(plane_n->pz * tan(angle), plane_n->py, plane_n->pz);
+//
+//        // transfer to point on original obj
+//        matVecMult(plane->T, rand_p);
+//
+//        // transfer ray->p0 from canonical object to origin obj
+//        matVecMult(plane->T, plane_n);
+//        // transfer ray->d from canonical object to origin obj
+//        ray_d->pw = 0;
+//        matVecMult(plane->T, ray_d);
+//        ray_d->pw = 1;
+//
+//        // return ray
+//        normalize(ray_d);
+//        struct ray3D *new_ray = newRay(rand_p, ray_d);
+//        memcpy(ray, new_ray, sizeof(struct ray3D));
+//
+//        free(plane_n);
+//        free(rand_p);
+//        free(ray_d);
+//        //free(new_ray);
+//    }
+//}
+//
+//void sphereLSRandomRay(struct object3D *sphere, struct ray3D *ray, struct point3D *c) {
+//
+//    if (sphere->isLightSource) {
+//        // Return sphere Ls normal which faces image sphere
+//        double lsx, lsy, lsz;
+//        (sphere->randomPoint)(sphere, &lsx, &lsy, &lsz);
+//        struct point3D *rand_p = newPoint(lsx, lsy, lsz);
+//        // p to camera direction
+//        struct point3D *c_d = newPoint(c->px-rand_p->px, c->py-rand_p->py, c->pz-rand_p->pz);
+//
+//        // transfer to point on canonical obj
+//        matVecMult(sphere->Tinv, rand_p);
+//        matVecMult(sphere->Tinv, c_d);
+//        struct point3D *sphere_n = newPoint(rand_p->px, rand_p->py, rand_p->pz);
+//        if (dot(c_d, sphere_n) < 0) {
+//            sphere_n->px *= -1;
+//            sphere_n->py *= -1;
+//            sphere_n->pz *= -1;
+//        }
+//        free(c_d);
+//
+//        // normal rotate in [-PI/2, PI/2] to get a random ray direction
+//        double angle = (PI * (double) rand() / RAND_MAX) - PI / 2;
+//        struct point3D *ray_d = newPoint(sphere_n->pz * tan(angle), sphere_n->py, sphere_n->pz);
+//
+//        // transfer to point on original obj
+//        matVecMult(sphere->T, rand_p);
+//
+//        // transfer ray->p0 from canonical object to origin obj
+//        matVecMult(sphere->T, sphere_n);
+//        // transfer ray->d from canonical object to origin obj
+//        ray_d->pw = 0;
+//        matVecMult(sphere->T, ray_d);
+//        ray_d->pw = 1;
+//
+//        // return ray
+//        normalize(ray_d);
+//        struct ray3D *new_ray = newRay(rand_p, ray_d);
+//        memcpy(ray, new_ray, sizeof(struct ray3D));
+//
+//        free(sphere_n);
+//        free(rand_p);
+//        free(ray_d);
+//    }
+//}
+//
+//void cylinderLSRandomRay(struct object3D *cylinder, struct ray3D *ray, struct point3D *c) {
+//    if (cylinder->isLightSource) {
+//        // Return cylinder Ls normal which faces image cylinder
+//        double lsx, lsy, lsz;
+//        (cylinder->randomPoint)(cylinder, &lsx, &lsy, &lsz);
+//        struct point3D *rand_p = newPoint(lsx, lsy, lsz);
+//        // p to camera direction
+//        struct point3D *c_d = newPoint(c->px-rand_p->px, c->py-rand_p->py, c->pz-rand_p->pz);
+//
+//        // transfer to point on canonical obj
+//        matVecMult(cylinder->Tinv, rand_p);
+//        matVecMult(cylinder->Tinv, c_d);
+//        struct point3D *cylinder_n = newPoint(rand_p->px, rand_p->py, 0);
+//
+//        if (dot(c_d, cylinder_n) < 0) {
+//            cylinder_n->px *= -1;
+//            cylinder_n->py *= -1;
+//            cylinder_n->pz *= -1;
+//        }
+//        free(c_d);
+//
+//        // normal rotate in [-PI/2, PI/2] to get a random ray direction
+//        double angle = (PI * (double) rand() / RAND_MAX) - PI / 2;
+//        struct point3D *ray_d = newPoint(cylinder_n->pz * tan(angle), cylinder_n->py, cylinder_n->pz);
+//
+//        // transfer to point on original obj
+//        matVecMult(cylinder->T, rand_p);
+//
+//        // transfer ray->p0 from canonical object to origin obj
+//        matVecMult(cylinder->T, cylinder_n);
+//        // transfer ray->d from canonical object to origin obj
+//        ray_d->pw = 0;
+//        matVecMult(cylinder->T, ray_d);
+//        ray_d->pw = 1;
+//
+//        // return ray
+//        normalize(ray_d);
+//        struct ray3D *new_ray = newRay(rand_p, ray_d);
+//        memcpy(ray, new_ray, sizeof(struct ray3D));
+//
+//        free(cylinder_n);
+//        free(rand_p);
+//        free(ray_d);
+//    }
+//}
 
 /////////////////////////////////////////////////////////////////
 // Surface coordinates & random sampling on object surfaces
@@ -527,6 +683,13 @@ void cylCoordinates(struct object3D *cyl, double a, double b, double *x, double 
     /////////////////////////////////
     // TO DO: Complete this function.
     /////////////////////////////////
+    struct point3D *p0 = newPoint(cos(a), sin(a), b);
+
+    matVecMult(cyl->T, p0);
+    *x = p0->px;
+    *y = p0->py;
+    *z = p0->pz;
+    free(p0);
 }
 
 void planeSample(struct object3D *plane, double *x, double *y, double *z) {
@@ -564,6 +727,11 @@ void cylSample(struct object3D *cyl, double *x, double *y, double *z) {
     /////////////////////////////////
     // TO DO: Complete this function.
     /////////////////////////////////
+
+    double a = ((double) rand() / RAND_MAX) - 0.5;
+    double b = 2 * PI * (double) rand() / RAND_MAX;
+
+    (cyl->surfaceCoords)(cyl, a, b, x, y, z);
 }
 
 
@@ -645,14 +813,70 @@ void texMap(struct image *img, double a, double b, double *R, double *G, double 
     // coordinates. Your code should use bi-linear
     // interpolation to obtain the texture colour.
     //////////////////////////////////////////////////
+    int ia, ib, ia2, ib2;     // coordinates of bi-linear interpolation
+    double intpart_a, intpart_b;
+    double r1, g1, b1, r2, g2, b2, r3, g3, b3, r4, g4, b4;       // color of four nodes
+    double ratio_a, ratio_b;               // ratio in horizontal/vertical direction
+    double *tp = (double *) img->rgbdata;     // image data
 
-    *(R) = 0;    // Returns black - delete this and
-    *(G) = 0;    // replace with your code to compute
-    *(B) = 0;    // texture colour at (a,b)
-    return;
+    a = max(-1e-6, a);
+    b = max(-1e-6, b);
+    a = min(1+1e-6, a);
+    b = min(1+1e-6, b);
+
+    // get coordinate of the point and the ratio within the pixel
+    ratio_a = modf(a*img->sx, &intpart_a);
+    ratio_b = modf(b*img->sy, &intpart_b);
+    ia = (int) intpart_a;
+    ib = (int) intpart_b;
+
+    if (ia >= img->sx) {
+        ia = img->sx - 1;
+        ratio_a = 1.0;
+    }
+    if (ib >= img->sy) {
+        ib = img->sy - 1;
+        ratio_b = 1.0;
+    }
+
+    ia2 = ia + 1;
+    ib2 = ib + 1;
+    ia2 = min(img->sx-1, ia2);
+    ib2 = min(img->sy-1, ib2);
+
+    // enable bi-linear interpolation
+    //  c3.........c4
+    //   :     x   :      r
+    //   :         :   (1-r)
+    //  c1 ....... c2
+    //   (1-r) | r
+    r1 = *(tp + ((ia + (ib * img->sx)) * 3) + 0);
+    g1 = *(tp + ((ia + (ib * img->sx)) * 3) + 1);
+    b1 = *(tp + ((ia + (ib * img->sx)) * 3) + 2);
+
+    r2 = *(tp + ((ia2 + (ib * img->sx)) * 3) + 0);
+    g2 = *(tp + ((ia2 + (ib * img->sx)) * 3) + 1);
+    b2 = *(tp + ((ia2 + (ib * img->sx)) * 3) + 2);
+
+    r3 = *(tp + ((ia + (ib2 * img->sx)) * 3) + 0);
+    g3 = *(tp + ((ia + (ib2 * img->sx)) * 3) + 1);
+    b3 = *(tp + ((ia + (ib2 * img->sx)) * 3) + 2);
+
+    r4 = *(tp + ((ia2 + (ib2 * img->sx)) * 3) + 0);
+    g4 = *(tp + ((ia2 + (ib2 * img->sx)) * 3) + 1);
+    b4 = *(tp + ((ia2 + (ib2 * img->sx)) * 3) + 2);
+
+    // c_bot = (1-r_a)c1 + r_a*c2
+    // c_top = (1-r_a)c3 + r_a*c4
+    // c = (1-r_b)c_bot + r_b*c_top
+    *R = (1 - ratio_b) * (((1 - ratio_a) * r1) + (ratio_a * r2)) + ratio_b * (((1 - ratio_a) * r3) + (ratio_a * r4));
+
+    *G = (1 - ratio_b) * (((1 - ratio_a) * g1) + (ratio_a * g2)) + ratio_b * (((1 - ratio_a) * g3) + (ratio_a * g4));
+
+    *B = (1 - ratio_b) * (((1 - ratio_a) * b1) + (ratio_a * b2)) + ratio_b * (((1 - ratio_a) * b3) + (ratio_a * b4));
 }
 
-void alphaMap(struct image *img, double a, double b, double *R, double *G, double *B) {
+void alphaMap(struct image *img, double a, double b, double *alpha) {
     // Just like texture map but returns the alpha value at a,b,
     // notice that alpha maps are single layer grayscale images, hence
     // the separate function.
@@ -665,9 +889,17 @@ void alphaMap(struct image *img, double a, double b, double *R, double *G, doubl
     // coordinates. Your code should use bi-linear
     // interpolation to obtain the texture colour.
     //////////////////////////////////////////////////
+    double intpart_a, intpart_b;
+    double *tp = (double *)img->rgbdata;
+    a = max(-1e-6, a);
+    b = max(-1e-6, b);
+    a = min(1+1e-6, a);
+    b = min(1+1e-6, b);
 
-// *(alpha)=1;	// Returns 1 which means fully opaque. Replace
-    return;    // with your code if implementing alpha maps.
+    modf(a * (img->sx-1), &intpart_a);
+    modf(b * (img->sy-1), &intpart_b);
+
+    *(alpha) = *(tp + (int) intpart_a + ((int) intpart_b * img->sx));
 }
 
 
@@ -1332,4 +1564,33 @@ void find_mirror_ray(struct ray3D *ray, struct point3D *n, struct ray3D *result)
     result->d.py = -ray->d.py + 2 * dot_product * n->py;
     result->d.pz = -ray->d.pz + 2 * dot_product * n->pz;
     normalize(&result->d);
+}
+
+// map the rgb color to the coordinate of the normal
+void rgb_to_coord(struct point3D *model, struct object3D *obj, double a, double b) {
+    // rgb is in range [0, 1] and normal is in range [-1, 1]
+    // x|y|z = 2*R|G|B - 1
+    double trans_matrix[4][4];
+    memcpy(trans_matrix, eye4x4, 16 * sizeof(double));
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            if (i == j) trans_matrix[i][j] = 2;
+            else if (j == 3) trans_matrix[i][j] = -1;
+        }
+    }
+
+    obj->textureMap(obj->normalMap, a, b, &model->px, &model->py, &model->pz);
+    matVecMult(trans_matrix, model);
+}
+
+// transform the normals into model space
+void tbn_transform(struct point3D *n, struct point3D *tangent, struct point3D *model) {
+    struct point3D *binormal = cross(tangent, n);
+    double TBN[4][4] = {{tangent->px, binormal->px, n->px, 0},
+                        {tangent->py, binormal->py, n->py, 0},
+                        {tangent->pz, binormal->pz, n->pz, 0},
+                        {0, 0, 0, 1}};
+    matVecMult(TBN, model);
+    normalize(model);
+    free(binormal);
 }

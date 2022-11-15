@@ -149,6 +149,7 @@ inline double length(struct point3D *a)
 // Functions to instantiate primitives
 struct point3D *newPoint(double px, double py, double pz);
 struct pointLS *newPLS(struct point3D *p0, double r, double g, double b);
+struct ray3D *newRay(struct point3D *p0, struct point3D *d);
 
 // Ray management inlines
 inline void rayPosition(struct ray3D *ray, double lambda, struct point3D *pos)
@@ -161,7 +162,7 @@ inline void rayPosition(struct ray3D *ray, double lambda, struct point3D *pos)
  pos->pw=1;
 }
 
-inline void initRay(struct ray3D *ray, struct point3D *p0, struct point3D *d)
+inline void initRay(struct ray3D *ray, struct point3D *p0, struct point3D *d, unsigned char insideOut)
 {
  // Initializes the given ray3D struct with the the position
  // and direction vectors. Note that this function DOES NOT normalize
@@ -170,6 +171,7 @@ inline void initRay(struct ray3D *ray, struct point3D *p0, struct point3D *d)
  memcpy(&ray->p0,p0,sizeof(struct point3D));
  memcpy(&ray->d,d,sizeof(struct point3D));
  ray->rayPos=&rayPosition;
+ ray->insideOut=insideOut;
 }
 
 // Ray and normal transformations to enable the use of canonical intersection tests with transformed objects
@@ -190,6 +192,11 @@ void planeSample(struct object3D *plane, double *x, double *y, double *z);
 void sphereSample(struct object3D *plane, double *x, double *y, double *z);
 void cylSample(struct object3D *plane, double *x, double *y, double *z);
 
+// Return Ls normal which faces image plane
+//void planeLSRandomRay(struct object3D *plane, struct ray3D *ray, struct point3D *c);
+//void sphereLSRandomRay(struct object3D *sphere, struct ray3D *ray, struct point3D *c);
+//void cylinderLSRandomRay(struct object3D *cylinder, struct ray3D *ray, struct point3D *c);
+
 // Functions to compute intersections for objects.
 // You'll need to add code for these in utils.c
 void planeIntersect(struct object3D *plane, struct ray3D *r, double *lambda, struct point3D *p, struct point3D *n, double *a, double *b);
@@ -200,7 +207,7 @@ void cylIntersect(struct object3D *cylinder, struct ray3D *r, double *lambda, st
 // You will need to add code for these if you implement texture mapping.
 void loadTexture(struct object3D *o, const char *filename, int type, struct textureNode **t_list);
 void texMap(struct image *img, double a, double b, double *R, double *G, double *B);
-void alphaMap(struct image *img, double a, double b, double *R, double *G, double *B);
+void alphaMap(struct image *img, double a, double b, double *alpha);
 
 // Functions to insert objects and lights into their respective lists
 void insertObject(struct object3D *o, struct object3D **list);
@@ -228,5 +235,7 @@ void deleteImage(struct image *im);
 void cleanup(struct object3D *o_list, struct pointLS *l_list, struct textureNode *t_list);
 
 void find_mirror_ray(struct ray3D *ray, struct point3D *n, struct ray3D *result);
+void rgb_to_coord(struct point3D *model, struct object3D *obj, double a, double b);
+void tbn_transform(struct point3D *n, struct point3D *tangent, struct point3D *model);
 
 #endif
