@@ -297,7 +297,7 @@ void calculatePixel(struct point3D *pc, struct colourRGB *col, struct view *cam,
     normalize(&d);
 
     // Initialize the ray
-    initRay(&ray, &cam->e, &d);
+    initRay(&ray, &cam->e, &d, 1);
     normalize(&ray.d);
 
     // Trace the ray of the pixel
@@ -324,6 +324,8 @@ int main(int argc, char *argv[]) {
     struct colourRGB col;        // Return colour for raytraced pixels
     struct colourRGB background;   // Background colour
     int i, j;            // Counters for pixel coordinates
+    int antialiasing_k = 5;
+    struct colourRGB sample_RGB;
     unsigned char *rgbIm;
 
     if (argc < 5) {
@@ -443,9 +445,11 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Rendering row: ");
+#pragma omp parallel for schedule(dynamic, 16) shared(antialiasing_k, rgbIm, object_list, cam, background) private(j)
     for (j = 0; j < sx; j++)        // For each of the pixels in the image
     {
         fprintf(stderr, "%d/%d, ", j, sx);
+#pragma omp parallel for private(pc, d, ray, col, sample_RGB, i)
         for (i = 0; i < sx; i++) {
             ///////////////////////////////////////////////////////////////////
             // TO DO - complete the code that should be in this loop to do the
@@ -458,22 +462,21 @@ int main(int argc, char *argv[]) {
 
             if (antialiasing) {
                 // 5-sampled anti-aliasing
-                struct colourRGB sample_RGB;
                 for (int k = 0; k < 5; ++k) {
                     // Calculate sample point in camera coordinate
-                    // the sampling point should be with in [cam->wl + i * du, cam->wl + (i+1) * du) on x-coord
-                    //                                      [cam->wl + j * du, cam->wl + (j+1) * du) on y-coord
-                    pc.px = cam->wl + i * du + ((double) rand()/ RAND_MAX) * du;
-                    pc.py = cam->wt + j * dv + ((double) rand()/ RAND_MAX) * dv;
+                    // the sampling point should be with in [px-0.5, px+0.5) on x-coord
+                    //                                      [py-0.5, py+0.5) on y-coord
+                    pc.px = cam->wl + du * (i + ((double) rand()/ RAND_MAX) - 0.5);
+                    pc.py = cam->wt + dv * (j + ((double) rand()/ RAND_MAX) - 0.5);
 
                     calculatePixel(&pc, &sample_RGB, cam, &background);
                     col.R += sample_RGB.R;
                     col.G += sample_RGB.G;
                     col.B += sample_RGB.B;
                 }
-                col.R = col.R / 5.0;
-                col.G = col.G / 5.0;
-                col.B = col.B / 5.0;
+                col.R = col.R / antialiasing_k;
+                col.G = col.G / antialiasing_k;
+                col.B = col.B / antialiasing_k;
             } else {
                 // Calculate pc in camera coordinate
                 pc.px = cam->wl + i * du;
