@@ -48,7 +48,7 @@ struct object3D *object_list;
 struct pointLS *light_list;
 struct textureNode *texture_list;
 int MAX_DEPTH;
-int photon_n=10000;
+int photon_n=100000;
 
 void buildScene(void) {
 #include "buildscene.c"        // <-- Import the scene definition!
