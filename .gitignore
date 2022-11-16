@@ -4,4 +4,3 @@ CMakeLists.txt
 *.exe
 test*
 autotester_id.txt
-buildscene2.c
