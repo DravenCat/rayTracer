@@ -444,6 +444,25 @@ int main(int argc, char *argv[]) {
     printmatrix(cam->W2C);
     fprintf(stderr, "\n");
 
+    // create the photon map image for each object except for the light source
+    for (struct object3D *diff_obj = object_list; diff_obj != NULL; diff_obj = diff_obj->next) {
+        if (!diff_obj->isLightSource && diff_obj->alb.rd != 0) { // is not a light source and is a diffuse object
+            diff_obj->photonMap = newImage(sx, sx);
+            diff_obj->photonMap->rgbdata = (double *)realloc(diff_obj->photonMap->rgbdata, sizeof(double) * sx * sx * 3);
+        }
+    }
+
+    int num_rays = 100000;
+    struct ray3D random_ray;
+    for (struct object3D *ls_obj = object_list; ls_obj != NULL; ls_obj = ls_obj->next) {
+        if (ls_obj->isLightSource) {
+            for (int k = 0; k < num_rays; ++k) {
+                ls_obj->initRandRay(ls_obj, &random_ray, &e);
+                forwardPassTrace(&random_ray, 1, ls_obj, ls_obj->col);
+            }
+        }
+    }
+
     fprintf(stderr, "Rendering row: ");
 #pragma omp parallel for schedule(dynamic, 16) shared(antialiasing_k, rgbIm, object_list, cam, background) private(j)
     for (j = 0; j < sx; j++)        // For each of the pixels in the image
