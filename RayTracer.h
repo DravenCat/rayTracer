@@ -200,6 +200,6 @@ void rtShade(struct object3D *obj, struct point3D *p, struct point3D *n,struct r
 void calculatePhongModel(struct point3D ls_ray_d, struct ray3D *ray, struct pointLS *i, struct object3D *obj, struct point3D *n, double R, double G, double B, struct colourRGB *tmp_col);
 void calculatePixel(struct point3D *pc, struct colourRGB *col, struct view *cam, struct colourRGB *background);
 void hierarchical(double M1[4][4],double depth,double ra, double rd, double rs, double rg,double alpha, double r_index,double shiny);
-void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double R, double G, double B);
+void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double R, double G, double B, int imgsize);
 
 #endif
