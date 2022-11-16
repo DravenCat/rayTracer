@@ -142,7 +142,7 @@ struct object3D{
         struct image *photonMap;			// Photon map for this object
 	struct image *normalMap;			// Normal map for this object
 	struct image *alphaMap;				// Alpha map for the object
-    void (*lsRandomRay)(struct object3D *obj, struct ray3D *ray, struct point3D *c);
+    void (*initRandRay)(struct object3D *obj, struct ray3D *ray, struct point3D *c);
 
 
 	// Material properties
@@ -199,6 +199,7 @@ void findFirstHit(struct ray3D *ray, double *lambda, struct object3D *Os, struct
 void rtShade(struct object3D *obj, struct point3D *p, struct point3D *n,struct ray3D *ray, int depth, double a, double b, struct colourRGB *col);
 void calculatePhongModel(struct point3D ls_ray_d, struct ray3D *ray, struct pointLS *i, struct object3D *obj, struct point3D *n, double R, double G, double B, struct colourRGB *tmp_col);
 void calculatePixel(struct point3D *pc, struct colourRGB *col, struct view *cam, struct colourRGB *background);
-//void hierarchical(double M1[4][4],double depth,double ra, double rd, double rs, double rg,double alpha, double r_index,double shiny);
+void hierarchical(double M1[4][4],double depth,double ra, double rd, double rs, double rg,double alpha, double r_index,double shiny);
+void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, struct colourRGB);
 
 #endif
