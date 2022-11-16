@@ -537,7 +537,7 @@ int main(int argc, char *argv[]) {
     // Camera center is at (0,0,-1)
     e.px = 0;
     e.py = 0;
-    e.pz = -1;
+    e.pz = -3;
     e.pw = 1;
 
     // To define the gaze vector, we choose a point 'pc' in the scene that
