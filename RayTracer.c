@@ -566,6 +566,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // cast ray from light sources
     struct ray3D random_ray;
     for (struct object3D *ls_obj = object_list; ls_obj != NULL; ls_obj = ls_obj->next) {
         if (ls_obj->isLightSource) {
