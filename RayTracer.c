@@ -82,7 +82,7 @@ void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double 
                 free(mirror_ray);
 
             } else if (first_hit->alpha + 1e-6 < 1) {
-                struct ray3D *refract_ray = getRefractedRay(ray, &tmp_n, first_hit);
+                struct ray3D *refract_ray = getRefractedRay(ray, &tmp_n, first_hit, &tmp_p);
                 if (refract_ray != NULL) {
                     forwardPassTrace(refract_ray, depth + 1, first_hit,
                                      (1 - first_hit->alpha) * first_hit->col.R * R,
@@ -253,39 +253,18 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
             tmp_col.G *= obj->alpha;
             tmp_col.B *= obj->alpha;
 
-            double r_idx1 = ray->insideOut ? 1.0 : obj->r_index;
-            double r_idx2 = ray->insideOut ? obj->r_index : 1.0;
-
-            struct point3D *op_d = newPoint(-ray->d.px, -ray->d.py, -ray->d.pz);
-            double cos_theta1 = dot(op_d, n);
-            double sin_theta1 = sqrt(1 - pow(cos_theta1, 2));
-            double sin_theta2 = (double) (r_idx1 / r_idx2) * sin_theta1;
-
+            struct colourRGB refracted_color;
+            struct ray3D *refract_ray= getRefractedRay(ray, n, obj, p);
             // has refraction , not total reflection
-            if (sin_theta2 < 1 && sin_theta2 > 0) {
-                double n21 = r_idx1 / r_idx2;
-                double dot_product = -dot(n, &ray->d);
-                double tmp = sqrt(1 - n21 * n21 * (1 - dot_product * dot_product));
+            if (refract_ray != NULL) {
 
-                struct point3D *refract_d = newPoint(n21 * (dot_product * n->px + ray->d.px) - tmp * n->px,
-                                                     n21 * (dot_product * n->py + ray->d.py) - tmp * n->py,
-                                                     n21 * (dot_product * n->pz + ray->d.pz) - tmp * n->pz);
-                normalize(refract_d);
-
-                struct colourRGB refracted_color;
-                struct ray3D *refracted_ray = newRay(p, refract_d);
-                refracted_ray->insideOut = 1 - ray->insideOut;
-                rayTrace(refracted_ray, depth + 1, &refracted_color, obj);
+                rayTrace(refract_ray, depth + 1, &refracted_color, obj);
 
                 tmp_col.R += (1 - obj->alpha) * R * refracted_color.R;
                 tmp_col.G += (1 - obj->alpha) * B * refracted_color.G;
                 tmp_col.B += (1 - obj->alpha) * G * refracted_color.B;
-
-                free(refract_d);
-                free(refracted_ray);
+                free(refract_ray);
             }
-
-            free(op_d);
         }
         // secondary reflection
         if (obj->alb.rg != 0){

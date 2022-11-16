@@ -1547,7 +1547,7 @@ void tbn_transform(struct point3D *n, struct point3D *tangent, struct point3D *m
     free(binormal);
 }
 
-struct ray3D *getRefractedRay(struct ray3D *ray, struct point3D *n, struct object3D *obj) {
+struct ray3D *getRefractedRay(struct ray3D *ray, struct point3D *n, struct object3D *obj, struct point3D *p) {
     // the ray hits a refracting object.
     double r_idx1 = ray->insideOut ? 1.0 : obj->r_index;
     double r_idx2 = ray->insideOut ? obj->r_index : 1.0;
@@ -1566,7 +1566,7 @@ struct ray3D *getRefractedRay(struct ray3D *ray, struct point3D *n, struct objec
                                              n21 * (dot_product * n->py + ray->d.py) - tmp * n->py,
                                              n21 * (dot_product * n->pz + ray->d.pz) - tmp * n->pz);
         normalize(refract_d);
-        struct ray3D *refract_ray = newRay(n, refract_d);
+        struct ray3D *refract_ray = newRay(p, refract_d);
         refract_ray->insideOut = 1 - ray->insideOut;
         free(refract_d);
         return refract_ray;
