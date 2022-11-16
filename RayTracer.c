@@ -48,7 +48,7 @@ struct object3D *object_list;
 struct pointLS *light_list;
 struct textureNode *texture_list;
 int MAX_DEPTH;
-int photon_n=100000;
+int PHOTON_N=100000;
 
 void buildScene(void) {
 #include "buildscene.c"        // <-- Import the scene definition!
@@ -76,9 +76,10 @@ void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double 
                 mirror_d.pw = 1;
                 normalize(&mirror_d);
 
-                ray = newRay(&tmp_p, &mirror_d);
-                forwardPassTrace(ray, depth + 1, first_hit, first_hit->alb.rg * R, first_hit->alb.rg * G, first_hit->alb.rg * B, imgsize);
-                free(ray);
+                struct ray3D *mirror_ray = newRay(&tmp_p, &mirror_d);
+                forwardPassTrace(mirror_ray, depth + 1, first_hit,
+                                 first_hit->alb.rg * R, first_hit->alb.rg * G, first_hit->alb.rg * B, imgsize);
+                free(mirror_ray);
 
             } else if (first_hit->alpha + 1e-6 < 1) {
                 // the ray hits a refracting object.
@@ -333,9 +334,9 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
         double photon_R, photon_G, photon_B;
         obj->textureMap(obj->photonMap, a, b, &photon_R, &photon_G, &photon_B);
 
-        tmp_col.R += obj->alb.rd * obj->alpha * photon_R * ((double)obj->photonMapped/photon_n);
-        tmp_col.G += obj->alb.rd * obj->alpha * photon_G * ((double)obj->photonMapped/photon_n);
-        tmp_col.B += obj->alb.rd * obj->alpha * photon_B * ((double)obj->photonMapped/photon_n);
+        tmp_col.R += obj->alb.rd * obj->alpha * photon_R * ((double)obj->photonMapped / PHOTON_N);
+        tmp_col.G += obj->alb.rd * obj->alpha * photon_G * ((double)obj->photonMapped / PHOTON_N);
+        tmp_col.B += obj->alb.rd * obj->alpha * photon_B * ((double)obj->photonMapped / PHOTON_N);
     }
 
     col->R = min(1, tmp_col.R);
@@ -611,7 +612,7 @@ int main(int argc, char *argv[]) {
     struct ray3D random_ray;
     for (struct object3D *ls_obj = object_list; ls_obj != NULL; ls_obj = ls_obj->next) {
         if (ls_obj->isLightSource) {
-            for (int k = 0; k < photon_n; ++k) {
+            for (int k = 0; k < PHOTON_N; ++k) {
                 ls_obj->initRandRay(ls_obj, &random_ray);
                 forwardPassTrace(&random_ray, 1, ls_obj, ls_obj->col.R, ls_obj->col.G, ls_obj->col.B, sx);
             }

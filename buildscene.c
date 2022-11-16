@@ -62,7 +62,7 @@
 						//     nothing happens! your object won't be rendered.
 
  // That's it for defining a single sphere... let's add a couple more objects
- o=newSphere(.05,.95,.95,.75,.75,.95,.55,1,1,6); // full
+ o=newSphere(.05,.95,.95,.25,.75,.95,.55,1,1,6); // full
 // o=newSphere(1,0,0,0,.75,.95,.55,1,1,6); // signature
 // o=newSphere(.1,.95,0,0,.75,.95,.55,1,1,6); // diffuse
 //o=newSphere(0,0,.95,0,.75,.95,.55,1,1,6); // specular
@@ -71,7 +71,6 @@
  Translate(o,-2.2,1.75,1.35);
  loadTexture(o,"./Texture/lava.ppm",1,&texture_list);
  loadTexture(o,"./Texture/lava_n.ppm",2,&texture_list);
- loadTexture(o,"./Texture/lava_a.pgm",3,&texture_list);
  invert(&o->T[0][0],&o->Tinv[0][0]);
  insertObject(o,&object_list);
 
@@ -79,13 +78,20 @@
 // o=newPlane(1,0,0,0,.55,.8,.75,1,1,2); // signature
 // o=newPlane(.1,.75,0,0,.55,.8,.75,1,1,2); // diffuse
 // o=newPlane(0,0,.65,0,.55,.8,.75,1,1,2); // specular
- Scale(o,11,11,11);
- RotateZ(o,PI/4);
+ Scale(o,30,11,11);
  RotateX(o,PI/2);
  Translate(o,0,-4,5);
  loadTexture(o,"./Texture/floor.ppm",1,&texture_list);
  loadTexture(o,"./Texture/floor_n.ppm",2,&texture_list);
  loadTexture(o,"./Texture/floor_a.pgm",3,&texture_list);
+ invert(&o->T[0][0],&o->Tinv[0][0]);
+ insertObject(o,&object_list);
+
+ o=newPlane(.2,.75,.05,.05,.55,.8,.75,1,1,2); // full
+ Scale(o,38,34,32);
+ RotateZ(o,PI);
+ Translate(o,0,29,16);
+ loadTexture(o,"./Texture/sky2.ppm",1,&texture_list);
  invert(&o->T[0][0],&o->Tinv[0][0]);
  insertObject(o,&object_list);
 
