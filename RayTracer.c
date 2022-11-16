@@ -48,6 +48,7 @@ struct object3D *object_list;
 struct pointLS *light_list;
 struct textureNode *texture_list;
 int MAX_DEPTH;
+int photon_n=10000;
 
 void buildScene(void) {
 #include "buildscene.c"        // <-- Import the scene definition!
@@ -125,7 +126,7 @@ void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double 
                 *(photon_rgb + 3 * (i + imgsize * j) + 1) += G;
                 *(photon_rgb + 3 * (i + imgsize * j) + 2) += B;
 
-//                photon_k =photon_k+1;
+                first_hit->photonMapped++;
             }
 
         }
@@ -330,9 +331,19 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
             tmp_col.B += mirror_result.B * obj->alb.rg;
         }
     }
-    col->R = tmp_col.R;
-    col->G = tmp_col.G;
-    col->B = tmp_col.B;
+    // apply the photon colour to current colour
+    if (obj->photonMap) {
+        double photon_R, photon_G, photon_B;
+        obj->textureMap(obj->photonMap, a, b, &photon_R, &photon_G, &photon_B);
+
+        tmp_col.R += obj->alb.rd * obj->alpha * photon_R * ((double)obj->photonMapped/photon_n);
+        tmp_col.G += obj->alb.rd * obj->alpha * photon_G * ((double)obj->photonMapped/photon_n);
+        tmp_col.B += obj->alb.rd * obj->alpha * photon_B * ((double)obj->photonMapped/photon_n);
+    }
+
+    col->R = min(1, tmp_col.R);
+    col->G = min(1, tmp_col.G);
+    col->B = min(1, tmp_col.B);
 }
 
 void findFirstHit(struct ray3D *ray, double *lambda, struct object3D *Os, struct object3D **obj, struct point3D *p,
@@ -593,14 +604,17 @@ int main(int argc, char *argv[]) {
         if (!diff_obj->isLightSource && diff_obj->alb.rd != 0) { // is not a light source and is a diffuse object
             diff_obj->photonMap = newImage(sx, sx);
             diff_obj->photonMap->rgbdata = (double *)realloc(diff_obj->photonMap->rgbdata, sizeof(double) * sx * sx * 3);
+            double *photon_rgb = (double *) diff_obj->photonMap->rgbdata;
+            for (int l=0; l < sx * sx * 3 ; l++) {
+                *(photon_rgb+l) = 0;
+            }
         }
     }
 
-    int num_rays = 100000;
     struct ray3D random_ray;
     for (struct object3D *ls_obj = object_list; ls_obj != NULL; ls_obj = ls_obj->next) {
         if (ls_obj->isLightSource) {
-            for (int k = 0; k < num_rays; ++k) {
+            for (int k = 0; k < photon_n; ++k) {
                 ls_obj->initRandRay(ls_obj, &random_ray);
                 forwardPassTrace(&random_ray, 1, ls_obj, ls_obj->col.R, ls_obj->col.G, ls_obj->col.B, sx);
             }
