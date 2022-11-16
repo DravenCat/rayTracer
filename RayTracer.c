@@ -118,55 +118,53 @@ void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double 
                 // store one photon at the location of the intersection point and stop tracing
                 double *photon_rgb = (double *) first_hit->photonMap->rgbdata;
 
-                int i = tmp_a * imgsize;
-                int j = tmp_b * imgsize;
+                int i = (int)tmp_a * imgsize;
+                int j = (int)tmp_b * imgsize;
 
                 *(photon_rgb + 3 * (i + imgsize * j)) += R;
                 *(photon_rgb + 3 * (i + imgsize * j) + 1) += G;
                 *(photon_rgb + 3 * (i + imgsize * j) + 2) += B;
 
-                photon_k =photon_k+1;
+//                photon_k =photon_k+1;
             }
 
         }
     }
 }
 
-void calculatePhongModel(struct point3D ls_ray_d, struct ray3D *ray, struct pointLS *i, struct object3D *obj,
+void calculatePhongModel(struct point3D s, struct ray3D *ray, struct object3D *i, struct object3D *obj,
                          struct point3D *n, double R, double G, double B,
                          struct colourRGB *tmp_col) {
-    // diffusion component rd*Id*max(0,n*s)
-    normalize(&ls_ray_d);
-    double diffusion_param =  max(0, fabs(dot(n, &ls_ray_d)));
-    if (!obj->frontAndBack) diffusion_param =  max(0, dot(n, &ls_ray_d));
-    tmp_col->R += R * obj->alb.rd * i->col.R * diffusion_param;
-    tmp_col->G += G * obj->alb.rd * i->col.G * diffusion_param;
-    tmp_col->B += B * obj->alb.rd * i->col.B * diffusion_param;
+    // Diffuse term
+    normalize(&s);
+    double diffusion_param = fabs(dot(n, &s));
+    if (!obj->frontAndBack && obj->alpha >= 1) diffusion_param = max(0, dot(n, &s));
+    tmp_col->R += obj->alb.rd * R * i->col.R * diffusion_param;
+    tmp_col->G += obj->alb.rd * G * i->col.G * diffusion_param;
+    tmp_col->B += obj->alb.rd * B * i->col.B * diffusion_param;
 
-    //specular component rs*Is*max(0,c*m)^a
-    // get m
-    struct point3D ls_ray_d_inv;
-    double dot_m = 2 * dot(n, &ls_ray_d);
-    ls_ray_d_inv.px = -ls_ray_d.px + dot_m *n->px;
-    ls_ray_d_inv.py = -ls_ray_d.py + dot_m *n->py;
-    ls_ray_d_inv.pz = -ls_ray_d.pz + dot_m *n->pz;
-    ls_ray_d_inv.pw = 1;
-    normalize(&ls_ray_d_inv);
+    // Specular hightlights term
+
+    struct point3D m;
+    double dot_m = 2 * dot(n, &s);
+    m.px = -s.px + dot_m * n->px;
+    m.py = -s.py + dot_m * n->py;
+    m.pz = -s.pz + dot_m * n->pz;
+    m.pw = 1;
+    normalize(&m);
 
     // get c
-    struct point3D ray_inv_d;
-    ray_inv_d.px = - ray->d.px;
-    ray_inv_d.py = - ray->d.py;
-    ray_inv_d.pz = - ray->d.pz;
-    ray_inv_d.pw = 1;
-    normalize(&ray_inv_d);
-
-    // get max(0, c*m)^a
-    double specular_param = pow(fabs(dot(&ray_inv_d, &ls_ray_d_inv)), obj->shinyness);
-    if (!obj->frontAndBack) specular_param = pow(max(0, dot(&ray_inv_d, &ls_ray_d_inv)), obj->shinyness);
-    tmp_col->R += obj->alb.rs * i->col.R * specular_param;
-    tmp_col->G += obj->alb.rs * i->col.G * specular_param;
-    tmp_col->B += obj->alb.rs * i->col.B * specular_param;
+    struct point3D c;
+    c.px = -ray->d.px;
+    c.py = -ray->d.py;
+    c.pz = -ray->d.pz;
+    c.pw = 1;
+    normalize(&c);
+    double specular_param = pow(fabs(dot(&c, &m)), obj->shinyness);
+    if (!obj->frontAndBack) specular_param = pow(max(0, dot(&c, &m)), obj->shinyness);
+    tmp_col->R += obj->alb.rs * R * i->col.R * specular_param;
+    tmp_col->G += obj->alb.rs * G * i->col.G * specular_param;
+    tmp_col->B += obj->alb.rs * B * i->col.B * specular_param;
 }
 
 void
@@ -211,39 +209,107 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
     //////////////////////////////////////////////////////////////
 
     // Be sure to update 'col' with the final colour computed here!
+    double hasLS = 0;
     double lambda_shade = -1.0;
     struct object3D *shade_obj;
     struct point3D shade_p, shade_n;
     double shade_a, shade_b;
 
-    // Local component
-    for (struct pointLS *i = light_list; i != NULL; i = i->next) {
-        // initialize the ray from the light source
-        struct ray3D light_src_ray;
-        struct point3D d;
-        memcpy(&d, &i->p0, sizeof(struct point3D));
-        subVectors(p, &d);
-        initRay(&light_src_ray, p, &d);
 
-        // ambient component
-        tmp_col.R += obj->alb.ra * R;
-        tmp_col.G += obj->alb.ra * G;
-        tmp_col.B += obj->alb.ra * B;
+    struct point3D d;
+    d.pw = -1;
+    for (struct object3D *i = object_list; i != NULL; i = i->next) {
+        if (i->isLightSource) {
+            hasLS=1;
+            int k = 0; // the number of unblocked rays
+            int K = 5; // the number of samples
+            for (int j = 0; j < K; j++) {
+                // get a sample point on the object light source
+                struct point3D p_obj;
+                i->randomPoint(i, &p_obj.px, &p_obj.py, &p_obj.pz);
 
-        // check whether in the shadow
-        findFirstHit(&light_src_ray, &lambda_shade, obj, &shade_obj,
-                     &shade_p, &shade_n, &shade_a, &shade_b);
+                // initialize the ray from the light source
+                struct ray3D light_src_ray;
+                memcpy(&d, &p_obj, sizeof(struct point3D));
+                subVectors(p, &d);
+                initRay(&light_src_ray, p, &d, 1);
 
-        // lambda < 0 or > 1 means not in shadow
-        if (lambda_shade + 1e-6 < 0 || lambda_shade > 1e-6 + 1) {
-            // calculate phong model
-            calculatePhongModel(light_src_ray.d, ray, i, obj, n, R, G, B, &tmp_col);
+                // check whether in the shadow
+                findFirstHit(&light_src_ray, &lambda_shade, obj, &shade_obj,
+                             &shade_p, &shade_n, &shade_a, &shade_b);
+
+                // lambda < 0 or > 1 means not in shadow
+                if (lambda_shade + 1e-6 < 0 || lambda_shade > 1e-6 + 1) {
+                    k++;
+                }
+            }
+
+            // exist some unblocked rays
+            if (k > 0) {
+                double ratio = (double) k / (double) K;
+                calculatePhongModel(d, ray, i,
+                                    obj, n, R * ratio, G * ratio, B * ratio, &tmp_col);
+            }
         }
     }
 
-    // Global component
-    if (depth < MAX_DEPTH) {
+    if (obj->alphaMap) alphaMap(obj->alphaMap, a, b, &obj->alpha);
 
+    // no light source in the scene
+    if (d.pw == -1) {
+        return;
+    }
+
+    // ambient component
+    obj->alb.ra = 0.3;
+    tmp_col.R += obj->alb.ra * R;
+    tmp_col.G += obj->alb.ra * G;
+    tmp_col.B += obj->alb.ra * B;
+
+    // Global component
+    if (depth <= MAX_DEPTH) {
+
+        // refraction
+
+        if (obj->alpha + 1e-6 < 1) {
+            tmp_col.R *= obj->alpha;
+            tmp_col.G *= obj->alpha;
+            tmp_col.B *= obj->alpha;
+
+            double r_idx1 = ray->insideOut ? 1.0 : obj->r_index;
+            double r_idx2 = ray->insideOut ? obj->r_index : 1.0;
+
+            struct point3D *op_d = newPoint(-ray->d.px, -ray->d.py, -ray->d.pz);
+            double cos_theta1 = dot(op_d, n);
+            double sin_theta1 = sqrt(1 - pow(cos_theta1, 2));
+            double sin_theta2 = (double) (r_idx1 / r_idx2) * sin_theta1;
+
+            // has refraction , not total reflection
+            if (sin_theta2 < 1 && sin_theta2 > 0) {
+                double n21 = r_idx1 / r_idx2;
+                double dot_product = -dot(n, &ray->d);
+                double tmp = sqrt(1 - n21 * n21 * (1 - dot_product * dot_product));
+
+                struct point3D *refract_d = newPoint(n21 * (dot_product * n->px + ray->d.px) - tmp * n->px,
+                                                     n21 * (dot_product * n->py + ray->d.py) - tmp * n->py,
+                                                     n21 * (dot_product * n->pz + ray->d.pz) - tmp * n->pz);
+                normalize(refract_d);
+
+                struct colourRGB refracted_color;
+                struct ray3D *refracted_ray = newRay(p, refract_d);
+                refracted_ray->insideOut = 1 - ray->insideOut;
+                rayTrace(refracted_ray, depth + 1, &refracted_color, obj);
+
+                tmp_col.R += (1 - obj->alpha) * R * refracted_color.R;
+                tmp_col.G += (1 - obj->alpha) * B * refracted_color.G;
+                tmp_col.B += (1 - obj->alpha) * G * refracted_color.B;
+
+                free(refract_d);
+                free(refracted_ray);
+            }
+
+            free(op_d);
+        }
         // secondary reflection
         if (obj->alb.rg != 0){
             struct colourRGB mirror_result;
@@ -255,7 +321,7 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
             mirror_ray.d.pz = ray->d.pz + m_dot * n->pz;
             mirror_ray.d.pw = 1;
             normalize(&mirror_ray.d);
-            initRay(&mirror_ray, p, &mirror_ray.d);
+            initRay(&mirror_ray, p, &mirror_ray.d, 1);
 
             // Trace the ray and add its result
             rayTrace(&mirror_ray, depth + 1, &mirror_result, obj);
@@ -263,7 +329,6 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
             tmp_col.G += mirror_result.G * obj->alb.rg;
             tmp_col.B += mirror_result.B * obj->alb.rg;
         }
-        // refraction
     }
     col->R = tmp_col.R;
     col->G = tmp_col.G;
