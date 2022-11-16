@@ -183,7 +183,7 @@ newPlane(double ra, double rd, double rs, double rg, double r, double g, double 
         plane->intersect = &planeIntersect;
         plane->surfaceCoords = &planeCoordinates;
         plane->randomPoint = &planeSample;
-        plane->lsRandomRay = &planeLSRandomRay;
+        plane->initRandRay = &planeSampleRay;
         plane->texImg = NULL;
         plane->photonMap = NULL;
         plane->normalMap = NULL;
@@ -231,7 +231,7 @@ newSphere(double ra, double rd, double rs, double rg, double r, double g, double
         sphere->intersect = &sphereIntersect;
         sphere->surfaceCoords = &sphereCoordinates;
         sphere->randomPoint = &sphereSample;
-        sphere->lsRandomRay = &sphereLSRandomRay;
+        sphere->initRandRay = &sphereSampleRay;
         sphere->texImg = NULL;
         sphere->photonMap = NULL;
         sphere->normalMap = NULL;
@@ -273,7 +273,7 @@ newCyl(double ra, double rd, double rs, double rg, double r, double g, double b,
         cylinder->intersect = &cylIntersect;
         cylinder->surfaceCoords = &cylCoordinates;
         cylinder->randomPoint = &cylSample;
-        cylinder->lsRandomRay = &cylinderLSRandomRay;
+        cylinder->initRandRay = &cylinderSampleRay;
         cylinder->texImg = NULL;
         cylinder->photonMap = NULL;
         cylinder->normalMap = NULL;
@@ -500,143 +500,104 @@ void cylIntersect(struct object3D *cylinder, struct ray3D *r, double *lambda, st
 }
 
 
-//void planeLSRandomRay(struct object3D *plane, struct ray3D *ray, struct point3D *c) {
-//    if (plane->isLightSource) {
-//        // Return plane Ls normal which faces image plane
-//        double lsx, lsy, lsz;
-//        (plane->randomPoint)(plane, &lsx, &lsy, &lsz);
-//        struct point3D *rand_p = newPoint(lsx, lsy, lsz);
-//        // p to camera direction
-//        struct point3D *c_d = newPoint(c->px-rand_p->px, c->py-rand_p->py, c->pz-rand_p->pz);
-//
-//        // transfer to point on canonical obj
-//        matVecMult(plane->Tinv, rand_p);
-//        matVecMult(plane->Tinv, c_d);
-//        struct point3D *plane_n = newPoint(rand_p->px, rand_p->py, 1);
-//        if (dot(c_d, plane_n) < 0) {
-//            plane_n->px *= -1;
-//            plane_n->py *= -1;
-//            plane_n->pz *= -1;
-//        }
-//        free(c_d);
-//
-//        // normal rotate in [-PI/2, PI/2] to get a random ray direction
-//        double angle = (PI * (double) rand() / RAND_MAX) - PI / 2;
-//        struct point3D *ray_d = newPoint(plane_n->pz * tan(angle), plane_n->py, plane_n->pz);
-//
-//        // transfer to point on original obj
-//        matVecMult(plane->T, rand_p);
-//
-//        // transfer ray->p0 from canonical object to origin obj
-//        matVecMult(plane->T, plane_n);
-//        // transfer ray->d from canonical object to origin obj
-//        ray_d->pw = 0;
-//        matVecMult(plane->T, ray_d);
-//        ray_d->pw = 1;
-//
-//        // return ray
-//        normalize(ray_d);
-//        struct ray3D *new_ray = newRay(rand_p, ray_d);
-//        memcpy(ray, new_ray, sizeof(struct ray3D));
-//
-//        free(plane_n);
-//        free(rand_p);
-//        free(ray_d);
-//        //free(new_ray);
-//    }
-//}
-//
-//void sphereLSRandomRay(struct object3D *sphere, struct ray3D *ray, struct point3D *c) {
-//
-//    if (sphere->isLightSource) {
-//        // Return sphere Ls normal which faces image sphere
-//        double lsx, lsy, lsz;
-//        (sphere->randomPoint)(sphere, &lsx, &lsy, &lsz);
-//        struct point3D *rand_p = newPoint(lsx, lsy, lsz);
-//        // p to camera direction
-//        struct point3D *c_d = newPoint(c->px-rand_p->px, c->py-rand_p->py, c->pz-rand_p->pz);
-//
-//        // transfer to point on canonical obj
-//        matVecMult(sphere->Tinv, rand_p);
-//        matVecMult(sphere->Tinv, c_d);
-//        struct point3D *sphere_n = newPoint(rand_p->px, rand_p->py, rand_p->pz);
-//        if (dot(c_d, sphere_n) < 0) {
-//            sphere_n->px *= -1;
-//            sphere_n->py *= -1;
-//            sphere_n->pz *= -1;
-//        }
-//        free(c_d);
-//
-//        // normal rotate in [-PI/2, PI/2] to get a random ray direction
-//        double angle = (PI * (double) rand() / RAND_MAX) - PI / 2;
-//        struct point3D *ray_d = newPoint(sphere_n->pz * tan(angle), sphere_n->py, sphere_n->pz);
-//
-//        // transfer to point on original obj
-//        matVecMult(sphere->T, rand_p);
-//
-//        // transfer ray->p0 from canonical object to origin obj
-//        matVecMult(sphere->T, sphere_n);
-//        // transfer ray->d from canonical object to origin obj
-//        ray_d->pw = 0;
-//        matVecMult(sphere->T, ray_d);
-//        ray_d->pw = 1;
-//
-//        // return ray
-//        normalize(ray_d);
-//        struct ray3D *new_ray = newRay(rand_p, ray_d);
-//        memcpy(ray, new_ray, sizeof(struct ray3D));
-//
-//        free(sphere_n);
-//        free(rand_p);
-//        free(ray_d);
-//    }
-//}
-//
-//void cylinderLSRandomRay(struct object3D *cylinder, struct ray3D *ray, struct point3D *c) {
-//    if (cylinder->isLightSource) {
-//        // Return cylinder Ls normal which faces image cylinder
-//        double lsx, lsy, lsz;
-//        (cylinder->randomPoint)(cylinder, &lsx, &lsy, &lsz);
-//        struct point3D *rand_p = newPoint(lsx, lsy, lsz);
-//        // p to camera direction
-//        struct point3D *c_d = newPoint(c->px-rand_p->px, c->py-rand_p->py, c->pz-rand_p->pz);
-//
-//        // transfer to point on canonical obj
-//        matVecMult(cylinder->Tinv, rand_p);
-//        matVecMult(cylinder->Tinv, c_d);
-//        struct point3D *cylinder_n = newPoint(rand_p->px, rand_p->py, 0);
-//
-//        if (dot(c_d, cylinder_n) < 0) {
-//            cylinder_n->px *= -1;
-//            cylinder_n->py *= -1;
-//            cylinder_n->pz *= -1;
-//        }
-//        free(c_d);
-//
-//        // normal rotate in [-PI/2, PI/2] to get a random ray direction
-//        double angle = (PI * (double) rand() / RAND_MAX) - PI / 2;
-//        struct point3D *ray_d = newPoint(cylinder_n->pz * tan(angle), cylinder_n->py, cylinder_n->pz);
-//
-//        // transfer to point on original obj
-//        matVecMult(cylinder->T, rand_p);
-//
-//        // transfer ray->p0 from canonical object to origin obj
-//        matVecMult(cylinder->T, cylinder_n);
-//        // transfer ray->d from canonical object to origin obj
-//        ray_d->pw = 0;
-//        matVecMult(cylinder->T, ray_d);
-//        ray_d->pw = 1;
-//
-//        // return ray
-//        normalize(ray_d);
-//        struct ray3D *new_ray = newRay(rand_p, ray_d);
-//        memcpy(ray, new_ray, sizeof(struct ray3D));
-//
-//        free(cylinder_n);
-//        free(rand_p);
-//        free(ray_d);
-//    }
-//}
+void planeSampleRay(struct object3D *plane, struct ray3D *ray) {
+    // get a random point on the transformed plane
+    struct point3D p;
+    (plane->randomPoint)(plane, &p.px, &p.py, &p.pz);
+
+    // transfer to point on canonical obj
+    matVecMult(plane->Tinv, &p);
+    struct point3D n;
+    memcpy(&n, &p, sizeof(struct point3D));
+    n.pz = 1;
+
+    // get a random direction
+    struct point3D rand_d;
+    getRandomDirection(&rand_d);
+    if (dot(&rand_d, &n) < 0) {
+        rand_d.px = -rand_d.px;
+        rand_d.py = -rand_d.py;
+        rand_d.pz = -rand_d.pz;
+    }
+    normalize(&rand_d);
+
+    // get the result random ray
+    matVecMult(plane->T, &p);
+    rand_d.pw = 0;
+    matVecMult(plane->T, &rand_d);
+    rand_d.pw = 1;
+    normalize(&rand_d);
+    initRay(ray, &p, &rand_d, 1);
+}
+
+void sphereSampleRay(struct object3D *sphere, struct ray3D *ray) {
+    // get a random point on the transformed sphere
+    struct point3D p;
+    (sphere->randomPoint)(sphere, &p.px, &p.py, &p.pz);
+
+    // transform to point be on the canonical sphere to get the normal
+    matVecMult(sphere->Tinv, &p);
+    struct point3D n;
+    memcpy(&n, &p, sizeof(struct point3D));
+
+    // get a random direction
+    struct point3D rand_d;
+    getRandomDirection(&rand_d);
+    if (dot(&rand_d, &n) < 0) {
+        rand_d.px = -rand_d.px;
+        rand_d.py = -rand_d.py;
+        rand_d.pz = -rand_d.pz;
+    }
+    normalize(&rand_d);
+
+    // get the result random ray
+    matVecMult(sphere->T, &p);
+    rand_d.pw = 0;
+    matVecMult(sphere->T, &rand_d);
+    rand_d.pw = 1;
+    normalize(&rand_d);
+    initRay(ray, &p, &rand_d, 1);
+}
+
+void cylinderSampleRay(struct object3D *cylinder, struct ray3D *ray) {
+    // get a random point on the transformed cylinder
+    struct point3D p;
+    (cylinder->randomPoint)(cylinder, &p.px, &p.py, &p.pz);
+
+    // transform to point be on the canonical cylinder to get the normal
+    matVecMult(cylinder->Tinv, &p);
+    struct point3D n;
+    memcpy(&n, &p, sizeof(struct point3D));
+    n.pz = 0;
+
+    // get a random direction
+    struct point3D rand_d;
+    getRandomDirection(&rand_d);
+    if (dot(&rand_d, &n) < 0) {
+        rand_d.px = -rand_d.px;
+        rand_d.py = -rand_d.py;
+        rand_d.pz = -rand_d.pz;
+    }
+    normalize(&rand_d);
+
+    // get the result random ray
+    matVecMult(cylinder->T, &p);
+    rand_d.pw = 0;
+    matVecMult(cylinder->T, &rand_d);
+    rand_d.pw = 1;
+    normalize(&rand_d);
+    initRay(ray, &p, &rand_d, 1);
+}
+
+// get a random direction by getting a random point on the canonical sphere
+void getRandomDirection(struct point3D *rand_d) {
+    double a = 2 * PI * (double) rand() / RAND_MAX;
+    double b = PI * ((double) rand() / RAND_MAX - 0.5);
+    double tmp = sqrt(1 - pow(cos(b), 2));
+    rand_d->px = tmp * cos(a);
+    rand_d->py = tmp * sin(a);
+    rand_d->pz = cos(b);
+}
 
 /////////////////////////////////////////////////////////////////
 // Surface coordinates & random sampling on object surfaces

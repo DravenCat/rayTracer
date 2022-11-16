@@ -457,7 +457,7 @@ int main(int argc, char *argv[]) {
     for (struct object3D *ls_obj = object_list; ls_obj != NULL; ls_obj = ls_obj->next) {
         if (ls_obj->isLightSource) {
             for (int k = 0; k < num_rays; ++k) {
-                ls_obj->initRandRay(ls_obj, &random_ray, &e);
+                ls_obj->initRandRay(ls_obj, &random_ray);
                 forwardPassTrace(&random_ray, 1, ls_obj, ls_obj->col);
             }
         }

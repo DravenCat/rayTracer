@@ -193,9 +193,10 @@ void sphereSample(struct object3D *plane, double *x, double *y, double *z);
 void cylSample(struct object3D *plane, double *x, double *y, double *z);
 
 // Return Ls normal which faces image plane
-//void planeLSRandomRay(struct object3D *plane, struct ray3D *ray, struct point3D *c);
-//void sphereLSRandomRay(struct object3D *sphere, struct ray3D *ray, struct point3D *c);
-//void cylinderLSRandomRay(struct object3D *cylinder, struct ray3D *ray, struct point3D *c);
+void planeSampleRay(struct object3D *plane, struct ray3D *ray);
+void sphereSampleRay(struct object3D *sphere, struct ray3D *ray);
+void cylinderSampleRay(struct object3D *cylinder, struct ray3D *ray);
+void getRandomDirection(struct point3D *rand_d);
 
 // Functions to compute intersections for objects.
 // You'll need to add code for these in utils.c
