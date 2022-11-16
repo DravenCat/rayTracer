@@ -235,7 +235,6 @@ void deleteImage(struct image *im);
 // structure.
 void cleanup(struct object3D *o_list, struct pointLS *l_list, struct textureNode *t_list);
 
-void find_mirror_ray(struct ray3D *ray, struct point3D *n, struct ray3D *result);
 void rgb_to_coord(struct point3D *model, struct object3D *obj, double a, double b);
 void tbn_transform(struct point3D *n, struct point3D *tangent, struct point3D *model);
 

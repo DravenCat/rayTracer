@@ -1517,15 +1517,6 @@ void cleanup(struct object3D *o_list, struct pointLS *l_list, struct textureNode
     }
 }
 
-void find_mirror_ray(struct ray3D *ray, struct point3D *n, struct ray3D *result) {
-    double dot_product = dot(&ray->d, n);
-    memcpy(&result->p0, &ray->p0, sizeof(struct point3D));
-    result->d.pw = 1;
-    result->d.px = -ray->d.px + 2 * dot_product * n->px;
-    result->d.py = -ray->d.py + 2 * dot_product * n->py;
-    result->d.pz = -ray->d.pz + 2 * dot_product * n->pz;
-    normalize(&result->d);
-}
 
 // map the rgb color to the coordinate of the normal
 void rgb_to_coord(struct point3D *model, struct object3D *obj, double a, double b) {

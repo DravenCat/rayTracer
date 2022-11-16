@@ -53,6 +53,39 @@ void buildScene(void) {
 #include "buildscene.c"        // <-- Import the scene definition!
 }
 
+void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double R, double G, double B){
+    if (depth > MAX_DEPTH) return;
+    else {
+        double tmp_lambda, tmp_a, tmp_b;
+        struct object3D *first_hit;
+        struct point3D tmp_p, tmp_n;
+        findFirstHit(ray, &tmp_lambda, Os, &first_hit, &tmp_p, &tmp_n, &tmp_a, &tmp_b);
+
+        if (tmp_lambda + 1e-6 < 0) { // hit nothing, stop tracing
+            return;
+        } else {
+            // the ray hits a reflecting object.
+            if (first_hit->alpha + 1e-6 >= 1 && first_hit->alb.rg > 1e-6) {
+                double dot_product = dot(&ray->d, &tmp_n);
+
+                struct point3D mirror_d;
+                mirror_d.px = tmp_n.px * (-2) * dot_product + ray->d.px;
+                mirror_d.py = tmp_n.py * (-2) * dot_product + ray->d.py;
+                mirror_d.pz = tmp_n.pz * (-2) * dot_product + ray->d.pz;
+                mirror_d.pw = 1;
+                normalize(&mirror_d);
+
+                ray = newRay(&tmp_p, &mirror_d);
+                forwardPassTrace(ray, depth + 1, first_hit, first_hit->alb.rg * R, first_hit->alb.rg * G, first_hit->alb.rg * B);
+                free(ray);
+            } else if (first_hit->alpha + 1e-6 < 1) {
+                // the ray hits a refracting object.
+            }
+
+        }
+    }
+}
+
 void calculatePhongModel(struct point3D ls_ray_d, struct ray3D *ray, struct pointLS *i, struct object3D *obj,
                          struct point3D *n, double R, double G, double B,
                          struct colourRGB *tmp_col) {
@@ -458,7 +491,7 @@ int main(int argc, char *argv[]) {
         if (ls_obj->isLightSource) {
             for (int k = 0; k < num_rays; ++k) {
                 ls_obj->initRandRay(ls_obj, &random_ray);
-                forwardPassTrace(&random_ray, 1, ls_obj, ls_obj->col);
+                forwardPassTrace(&random_ray, 1, ls_obj, ls_obj->col.R, ls_obj->col.G, ls_obj->col.B);
             }
         }
     }
