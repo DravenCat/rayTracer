@@ -198,7 +198,7 @@ int main(int argc, char *argv[]);                                    // Main ray
 
 // Raytracing
 void
-buildScene(void);                                            // Scene set up. Defines objects and object transformations
+buildScene(int mode);                                            // Scene set up. Defines objects and object transformations
 void rayTrace(struct ray3D *ray, int depth, struct colourRGB *col, struct object3D *Os);        // RayTracing routine
 void findFirstHit(struct ray3D *ray, double *lambda, struct object3D *Os, struct object3D **obj, struct point3D *p,
                   struct point3D *n, double *a, double *b);
@@ -214,5 +214,8 @@ calculatePhongModel(struct point3D s, struct ray3D *ray, struct object3D *i, str
 void calculatePixel(struct point3D *pc, struct colourRGB *col, struct view *cam, struct colourRGB *background);
 
 void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double R, double G, double B, int imgsize);
+
+void hierarchical(double T[4][4], double depth, double ra, double rd, double rs, double rg,
+                  double alpha, double r_index, double shiny, int shape);
 
 #endif

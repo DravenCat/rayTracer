@@ -50,8 +50,65 @@ struct textureNode *texture_list;
 int MAX_DEPTH;
 int PHOTON_N = 100000;
 
-void buildScene(void) {
+void buildScene(int mode) {
+    if (mode ==1) {
+        addAreaLight(3, 3, 0, 0, 0, 0, 25.5, -1.9, 5, 5, .95, .95, .95, &object_list, &light_list);
+        addAreaLight(3, 3, 1, 1, 1, -2, -5, 1.9, 5, 5, .85, .95, .90, &object_list, &light_list);
+        addAreaLight(3, 3, 0, 0, 0, 5, 30, 10, 5, 5, .95, .95, .95, &object_list, &light_list);
+        double T[4][4] = {{1.0, 0.0, 0.0, 0.0},
+                          {0.0, 1.0, 0.0, 0.0},
+                          {0.0, 0.0, 1.0, 0.0},
+                          {0.0, 0.0, 0.0, 1.0}};
+        ScaleMat(T, 1.5,.75,.75);
+        RotateZMat(T, PI/4);
+        TranslateMat(T, 2.0,2.5,1.5);
+
+        struct object3D *o=newPlane(.05,.75,.05,.05,.55,.8,.75,1,1,2);
+        Scale(o,30,11,11);
+        RotateZ(o,PI/4);
+        RotateX(o,PI/2);
+        Translate(o,0,-6,5);
+        loadTexture(o,"./Texture/floor.ppm",1,&texture_list);
+        loadTexture(o,"./Texture/floor_n.ppm",2,&texture_list);
+        loadTexture(o,"./Texture/floor_a.pgm",3,&texture_list);
+        invert(&o->T[0][0],&o->Tinv[0][0]);
+        insertObject(o,&object_list);
+
+        hierarchical(T, 9,.05,.95,.95,.75,0.3,0.7,3, 2);
+    } else if (mode == 2){
+#include "buildscene2.c"        // <-- Import the scene definition!
+    } else {
 #include "buildscene.c"        // <-- Import the scene definition!
+    }
+}
+
+void hierarchical(double T[4][4], double depth, double ra, double rd, double rs, double rg,
+                  double alpha, double r_index, double shiny, int shape){
+    // shape == 1   hierarchical plane
+    // shape == 2   hierarchical sphere
+    // shape == 3   hierarchical cylinder
+    // hierarchically generate a scenc with the starter T
+    if(depth>0){
+        double R = (double)rand() / (double)RAND_MAX;
+        double G = (double)rand() / (double)RAND_MAX;
+        double B = (double)rand() / (double)RAND_MAX;
+        struct object3D *obj = NULL;
+        if (shape == 1) {
+            obj = newPlane(ra, rd, rs, rg, R, G, B, alpha, r_index, shiny);
+        } else if (shape == 2) {
+            obj = newSphere(ra, rd, rs, rg, R, G, B, alpha, r_index, shiny);
+        }else if (shape == 3) {
+            obj = newCyl(ra, rd, rs, rg, R, G, B, alpha, r_index, shiny);
+        } else {
+            fprintf(stderr, "Sorry, do not support this shape!\n");
+            return;
+        }
+        memcpy(obj->T, T, 16 * sizeof(double));
+        invert(&obj->T[0][0], &obj->Tinv[0][0]);
+        insertObject(obj, &object_list);
+        RotateZMat(T, PI/4);
+        hierarchical(T, depth-1, ra,rd,rs,rg,alpha,r_index,shiny, shape);
+    }
 }
 
 void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double R, double G, double B, int imgsize) {
@@ -437,20 +494,23 @@ int main(int argc, char *argv[]) {
     int antialiasing_k = 5;
     struct colourRGB sample_RGB;
     unsigned char *rgbIm;
+    int mode;
 
-    if (argc < 5) {
+    if (argc < 6) {
         fprintf(stderr, "RayTracer: Can not parse input parameters\n");
         fprintf(stderr, "USAGE: RayTracer size rec_depth antialias output_name\n");
         fprintf(stderr, "   size = Image size (both along x and y)\n");
         fprintf(stderr, "   rec_depth = Recursion depth\n");
         fprintf(stderr, "   antialias = A single digit, 0 disables antialiasing. Anything else enables antialiasing\n");
         fprintf(stderr, "   output_name = Name of the output file, e.g. MyRender.ppm\n");
+        fprintf(stderr, "   Scene choice e.g. 1, 2, 3\n");
         exit(0);
     }
     sx = atoi(argv[1]);
     MAX_DEPTH = atoi(argv[2]);
     if (atoi(argv[3]) == 0) antialiasing = 0; else antialiasing = 1;
     strcpy(&output_name[0], argv[4]);
+    mode = atoi(argv[5]);
 
     fprintf(stderr, "Rendering image at %d x %d\n", sx, sx);
     fprintf(stderr, "Recursion depth = %d\n", MAX_DEPTH);
@@ -476,7 +536,7 @@ int main(int argc, char *argv[]) {
     //        for Assignment 3 you need to create your own
     //        *interesting* scene.
     ///////////////////////////////////////////////////
-    buildScene();        // Create a scene. This defines all the
+    buildScene(mode);        // Create a scene. This defines all the
     // objects in the world of the raytracer
 
     //////////////////////////////////////////
