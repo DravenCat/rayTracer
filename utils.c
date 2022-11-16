@@ -1546,3 +1546,31 @@ void tbn_transform(struct point3D *n, struct point3D *tangent, struct point3D *m
     normalize(model);
     free(binormal);
 }
+
+struct ray3D *getRefractedRay(struct ray3D *ray, struct point3D *n, struct object3D *obj) {
+    // the ray hits a refracting object.
+    double r_idx1 = ray->insideOut ? 1.0 : obj->r_index;
+    double r_idx2 = ray->insideOut ? obj->r_index : 1.0;
+    double cos_theta1 = dot(&ray->d, n);
+    double sin_theta1 = sqrt(1 - pow(cos_theta1, 2));
+    // r1 sin_theta1 = r2 sin_theta2
+    double sin_theta2 = (double) (r_idx1 / r_idx2) * sin_theta1;
+
+    // not in total reflection
+    if (sin_theta2 < 1 && sin_theta2 > 0) {
+        double n21 = r_idx1 / r_idx2;
+        double dot_product = -dot(n, &ray->d);
+        double tmp = sqrt(1 - n21 * n21 * (1 - dot_product * dot_product));
+
+        struct point3D *refract_d = newPoint(n21 * (dot_product * n->px + ray->d.px) - tmp * n->px,
+                                             n21 * (dot_product * n->py + ray->d.py) - tmp * n->py,
+                                             n21 * (dot_product * n->pz + ray->d.pz) - tmp * n->pz);
+        normalize(refract_d);
+        struct ray3D *refract_ray = newRay(n, refract_d);
+        refract_ray->insideOut = 1 - ray->insideOut;
+        free(refract_d);
+        return refract_ray;
+
+    }
+    return NULL;
+}

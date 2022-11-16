@@ -82,37 +82,15 @@ void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double 
                 free(mirror_ray);
 
             } else if (first_hit->alpha + 1e-6 < 1) {
-                // the ray hits a refracting object.
-                double r_idx1 = ray->insideOut ? 1.0 : first_hit->r_index;
-                double r_idx2 = ray->insideOut ? first_hit->r_index : 1.0;
-                struct point3D *op_d = newPoint(-ray->d.px, -ray->d.py, -ray->d.pz);
-                double cos_theta1 = dot(op_d, &tmp_n);
-                double sin_theta1 = sqrt(1 - pow(cos_theta1, 2));
-                double sin_theta2 = (double) (r_idx1 / r_idx2) * sin_theta1;
-
-                if (sin_theta2 < 1 && sin_theta2 > 0) {
-                    double n21 = r_idx1 / r_idx2;
-                    double dot_product = -dot(&tmp_n, &ray->d);
-                    double tmp = sqrt(1 - n21 * n21 * (1 - dot_product * dot_product));
-
-                    struct point3D *refract_d = newPoint(n21 * (dot_product * tmp_n.px + ray->d.px) - tmp * tmp_n.px,
-                                                         n21 * (dot_product * tmp_n.py + ray->d.py) - tmp * tmp_n.py,
-                                                         n21 * (dot_product * tmp_n.pz + ray->d.pz) - tmp * tmp_n.pz);
-                    normalize(refract_d);
-                    struct ray3D *refract_ray = newRay(&tmp_p, refract_d);
-                    refract_ray->insideOut = 1 - ray->insideOut;
-
+                struct ray3D *refract_ray = getRefractedRay(ray, &tmp_n, first_hit);
+                if (refract_ray != NULL) {
                     forwardPassTrace(refract_ray, depth + 1, first_hit,
                                      (1 - first_hit->alpha) * first_hit->col.R * R,
                                      (1 - first_hit->alpha) * first_hit->col.G * G,
                                      (1 - first_hit->alpha) * first_hit->col.B * B,
                                      imgsize);
-
-                    free(refract_d);
                     free(refract_ray);
                 }
-
-                free(op_d);
             }
 
             if (first_hit->alb.rd && depth > 0) {

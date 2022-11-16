@@ -237,5 +237,5 @@ void cleanup(struct object3D *o_list, struct pointLS *l_list, struct textureNode
 
 void rgb_to_coord(struct point3D *model, struct object3D *obj, double a, double b);
 void tbn_transform(struct point3D *n, struct point3D *tangent, struct point3D *model);
-
+struct ray3D *getRefractedRay(struct ray3D *ray, struct point3D *n, struct object3D *obj);
 #endif
