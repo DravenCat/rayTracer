@@ -210,7 +210,6 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
     //////////////////////////////////////////////////////////////
 
     // Be sure to update 'col' with the final colour computed here!
-    double hasLS = 0;
     double lambda_shade = -1.0;
     struct object3D *shade_obj;
     struct point3D shade_p, shade_n;
@@ -221,7 +220,6 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
     d.pw = -1;
     for (struct object3D *i = object_list; i != NULL; i = i->next) {
         if (i->isLightSource) {
-            hasLS=1;
             int k = 0; // the number of unblocked rays
             int K = 5; // the number of samples
             for (int j = 0; j < K; j++) {
