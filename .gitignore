@@ -2,6 +2,6 @@
 cmake-build-debug
 CMakeLists.txt
 *.exe
-*.ppm
+test*
 autotester_id.txt
 buildscene2.c

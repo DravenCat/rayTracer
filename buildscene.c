@@ -40,6 +40,9 @@
  Scale(o,1.5,.75,.75);					// Apply a few transforms (Translate * Rotate * Scale)
  RotateZ(o,PI/4);
  Translate(o,2.0,2.5,1.5);
+ loadTexture(o,"./Texture/base1.ppm",1,&texture_list);
+ loadTexture(o,"./Texture/base1_n.ppm",2,&texture_list);
+ loadTexture(o,"./Texture/base1_a.pgm",3,&texture_list);
  invert(&o->T[0][0],&o->Tinv[0][0]);			// Compute the inverse transform * DON'T FORGET TO DO THIS! *
 
  // If needed, this is how you load a texture map
@@ -66,6 +69,9 @@
  Scale(o,.95,1.65,.65);
  RotateZ(o,-PI/1.5);
  Translate(o,-2.2,1.75,1.35);
+ loadTexture(o,"./Texture/lava.ppm",1,&texture_list);
+ loadTexture(o,"./Texture/lava_n.ppm",2,&texture_list);
+ loadTexture(o,"./Texture/lava_a.pgm",3,&texture_list);
  invert(&o->T[0][0],&o->Tinv[0][0]);
  insertObject(o,&object_list);
 
@@ -77,18 +83,20 @@
  RotateZ(o,PI/4);
  RotateX(o,PI/2);
  Translate(o,0,-4,5);
+ loadTexture(o,"./Texture/floor.ppm",1,&texture_list);
+ loadTexture(o,"./Texture/floor_n.ppm",2,&texture_list);
+ loadTexture(o,"./Texture/floor_a.pgm",3,&texture_list);
  invert(&o->T[0][0],&o->Tinv[0][0]);
  insertObject(o,&object_list);
 
  // Insert a single point light source. We set up its position as a point structure, and specify its
  // colour in terms of RGB (in [0,1]).
- p.px=0;
- p.py=25.5;
- p.pz=-3.5;
- p.pw=1;
- l=newPLS(&p,.95,.95,.95);
- insertPLS(l,&light_list);
-
+ o=newSphere(.05,.95,.95,.75,.35,.55,.75,0.3,0.7,3); // full
+ Scale(o,.85,1.35,.75);
+ RotateZ(o,PI/0.6);
+ Translate(o,1,0,0.3);
+ invert(&o->T[0][0],&o->Tinv[0][0]);
+ insertObject(o,&object_list);
  // End of simple scene for Assignment 2
  // Keep in mind that you can define new types of objects such as cylinders and parametric surfaces,
  // or, you can create code to handle arbitrary triangles and then define objects as surface meshes.
@@ -105,3 +113,7 @@
  //        transparency, and the overall visual quality of your result. Put some work into thinking
  //        about these elements when designing your scene.
  ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+ // an area LS
+ addAreaLight(3, 3, 0, 0, 0, 0, 25.5, -1.9, 5, 5, .95, .95, .95, &object_list, &light_list);
+ addAreaLight(3, 3, 1, 1, 1, -2, -5, 1.9, 5, 5, .85, .95, .90, &object_list, &light_list);
+ addAreaLight(3, 3, 0, 0, 0, 5, 30, 10, 5, 5, .95, .95, .95, &object_list, &light_list);

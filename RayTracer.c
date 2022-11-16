@@ -260,7 +260,6 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
     }
 
     // ambient component
-    obj->alb.ra = 0.3;
     tmp_col.R += obj->alb.ra * R;
     tmp_col.G += obj->alb.ra * G;
     tmp_col.B += obj->alb.ra * B;
