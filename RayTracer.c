@@ -48,13 +48,13 @@ struct object3D *object_list;
 struct pointLS *light_list;
 struct textureNode *texture_list;
 int MAX_DEPTH;
-int PHOTON_N=100000;
+int PHOTON_N = 100000;
 
 void buildScene(void) {
 #include "buildscene.c"        // <-- Import the scene definition!
 }
 
-void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double R, double G, double B, int imgsize){
+void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double R, double G, double B, int imgsize) {
     if (depth > MAX_DEPTH) return;
     else {
         double tmp_lambda, tmp_a, tmp_b;
@@ -98,8 +98,8 @@ void forwardPassTrace(struct ray3D *ray, int depth, struct object3D *Os, double 
                 // store one photon at the location of the intersection point and stop tracing
                 double *photon_rgb = (double *) first_hit->photonMap->rgbdata;
 
-                int i = (int)tmp_a * imgsize;
-                int j = (int)tmp_b * imgsize;
+                int i = (int) tmp_a * imgsize;
+                int j = (int) tmp_b * imgsize;
 
                 *(photon_rgb + 3 * (i + imgsize * j)) += R;
                 *(photon_rgb + 3 * (i + imgsize * j) + 1) += G;
@@ -254,7 +254,7 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
             tmp_col.B *= obj->alpha;
 
             struct colourRGB refracted_color;
-            struct ray3D *refract_ray= getRefractedRay(ray, n, obj, p);
+            struct ray3D *refract_ray = getRefractedRay(ray, n, obj, p);
             // has refraction , not total reflection
             if (refract_ray != NULL) {
 
@@ -267,7 +267,7 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
             }
         }
         // secondary reflection
-        if (obj->alb.rg != 0){
+        if (obj->alb.rg != 0) {
             struct colourRGB mirror_result;
             // Get the ray in mirror direction
             struct ray3D mirror_ray;
@@ -291,9 +291,9 @@ rtShade(struct object3D *obj, struct point3D *p, struct point3D *n, struct ray3D
         double photon_R, photon_G, photon_B;
         obj->textureMap(obj->photonMap, a, b, &photon_R, &photon_G, &photon_B);
 
-        tmp_col.R += obj->alb.rd * obj->alpha * photon_R * ((double)obj->photonMapped / PHOTON_N);
-        tmp_col.G += obj->alb.rd * obj->alpha * photon_G * ((double)obj->photonMapped / PHOTON_N);
-        tmp_col.B += obj->alb.rd * obj->alpha * photon_B * ((double)obj->photonMapped / PHOTON_N);
+        tmp_col.R += obj->alb.rd * obj->alpha * photon_R * ((double) obj->photonMapped / PHOTON_N);
+        tmp_col.G += obj->alb.rd * obj->alpha * photon_G * ((double) obj->photonMapped / PHOTON_N);
+        tmp_col.B += obj->alb.rd * obj->alpha * photon_B * ((double) obj->photonMapped / PHOTON_N);
     }
 
     col->R = min(1, tmp_col.R);
@@ -326,7 +326,7 @@ void findFirstHit(struct ray3D *ray, double *lambda, struct object3D *Os, struct
 
     // traverse all the object that is not itself or light source
     for (struct object3D *i = object_list; i != NULL; i = i->next) {
-        if (i != Os && !i->isLightSource){
+        if (i != Os && !i->isLightSource) {
             struct point3D tmp_p, tmp_n;
             double tmp_a, tmp_b;
 
@@ -558,10 +558,11 @@ int main(int argc, char *argv[]) {
     for (struct object3D *diff_obj = object_list; diff_obj != NULL; diff_obj = diff_obj->next) {
         if (!diff_obj->isLightSource && diff_obj->alb.rd != 0) { // is not a light source and is a diffuse object
             diff_obj->photonMap = newImage(sx, sx);
-            diff_obj->photonMap->rgbdata = (double *)realloc(diff_obj->photonMap->rgbdata, sizeof(double) * sx * sx * 3);
+            diff_obj->photonMap->rgbdata = (double *) realloc(diff_obj->photonMap->rgbdata,
+                                                              sizeof(double) * sx * sx * 3);
             double *photon_rgb = (double *) diff_obj->photonMap->rgbdata;
-            for (int l=0; l < sx * sx * 3 ; l++) {
-                *(photon_rgb+l) = 0;
+            for (int l = 0; l < sx * sx * 3; l++) {
+                *(photon_rgb + l) = 0;
             }
         }
     }
@@ -599,8 +600,8 @@ int main(int argc, char *argv[]) {
                     // Calculate sample point in camera coordinate
                     // the sampling point should be with in [px-0.5, px+0.5) on x-coord
                     //                                      [py-0.5, py+0.5) on y-coord
-                    pc.px = cam->wl + du * (i + ((double) rand()/ RAND_MAX) - 0.5);
-                    pc.py = cam->wt + dv * (j + ((double) rand()/ RAND_MAX) - 0.5);
+                    pc.px = cam->wl + du * (i + ((double) rand() / RAND_MAX) - 0.5);
+                    pc.py = cam->wt + dv * (j + ((double) rand() / RAND_MAX) - 0.5);
 
                     calculatePixel(&pc, &sample_RGB, cam, &background);
                     col.R += sample_RGB.R;

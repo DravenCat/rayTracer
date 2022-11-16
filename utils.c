@@ -82,8 +82,8 @@ struct pointLS *newPLS(struct point3D *p0, double r, double g, double b) {
 
 // return a new ray starting at p0 and has direction d
 struct ray3D *newRay(struct point3D *p0, struct point3D *d) {
-    struct ray3D *ray = (struct ray3D *) calloc(1,sizeof(struct ray3D));
-    if (!ray) fprintf(stderr,"Out of memory allocating ray structure!\n");
+    struct ray3D *ray = (struct ray3D *) calloc(1, sizeof(struct ray3D));
+    if (!ray) fprintf(stderr, "Out of memory allocating ray structure!\n");
     else {
         initRay(ray, p0, d, 1);
     }
@@ -374,13 +374,12 @@ void sphereIntersect(struct object3D *sphere, struct ray3D *ray, double *lambda,
     if (delta + 1e-6 < 0) { // no solution
         *lambda = -1;
         return;
-    }
-    else if (fabs(delta) < 1e-6) // one solution
+    } else if (fabs(delta) < 1e-6) // one solution
         *lambda = -B / A;
     else if (delta > 1e-6) {// two different solution
         // "lambda_1 > lambda_2" because "sqrt(delta) / A > 0"
-        double lambda_1 = - B / A + sqrt(delta) / A;
-        double lambda_2 = - B / A - sqrt(delta) / A;
+        double lambda_1 = -B / A + sqrt(delta) / A;
+        double lambda_2 = -B / A - sqrt(delta) / A;
 
         if (lambda_1 + 1e-6 < 0) { // 0 > lambda_1 > lambda_2
             *lambda = -1;
@@ -445,13 +444,12 @@ void cylIntersect(struct object3D *cylinder, struct ray3D *r, double *lambda, st
 
     if (delta + 1e-6 < 0) { // no solution
         *lambda = -1;
-    }
-    else if (fabs(delta) < 1e-6) // one solution
+    } else if (fabs(delta) < 1e-6) // one solution
         *lambda = -B / A;
     else if (delta > 1e-6) {// two different solution
         // "lambda_1 > lambda_2" because "sqrt(delta) / A > 0"
-        double lambda_1 = - B / A + sqrt(delta) / A;
-        double lambda_2 = - B / A - sqrt(delta) / A;
+        double lambda_1 = -B / A + sqrt(delta) / A;
+        double lambda_2 = -B / A - sqrt(delta) / A;
 
         if (lambda_1 + 1e-6 < 0) { // 0 > lambda_1 > lambda_2
             *lambda = -1;
@@ -467,7 +465,7 @@ void cylIntersect(struct object3D *cylinder, struct ray3D *r, double *lambda, st
     }
 
     // Get the actual intersection with the quadratic wall
-    if (*lambda + 1e-6 >= 0){
+    if (*lambda + 1e-6 >= 0) {
         // check |z| <= 1
         double z = ray_trans.p0.pz + ((*lambda) * (ray_trans.d.pz));
         if (fabs(z) - 1 > 1e-6) {
@@ -782,12 +780,12 @@ void texMap(struct image *img, double a, double b, double *R, double *G, double 
 
     a = max(-1e-6, a);
     b = max(-1e-6, b);
-    a = min(1+1e-6, a);
-    b = min(1+1e-6, b);
+    a = min(1 + 1e-6, a);
+    b = min(1 + 1e-6, b);
 
     // get coordinate of the point and the ratio within the pixel
-    ratio_a = modf(a*img->sx, &intpart_a);
-    ratio_b = modf(b*img->sy, &intpart_b);
+    ratio_a = modf(a * img->sx, &intpart_a);
+    ratio_b = modf(b * img->sy, &intpart_b);
     ia = (int) intpart_a;
     ib = (int) intpart_b;
 
@@ -802,8 +800,8 @@ void texMap(struct image *img, double a, double b, double *R, double *G, double 
 
     ia2 = ia + 1;
     ib2 = ib + 1;
-    ia2 = min(img->sx-1, ia2);
-    ib2 = min(img->sy-1, ib2);
+    ia2 = min(img->sx - 1, ia2);
+    ib2 = min(img->sy - 1, ib2);
 
     // enable bi-linear interpolation
     //  c3.........c4
@@ -851,14 +849,14 @@ void alphaMap(struct image *img, double a, double b, double *alpha) {
     // interpolation to obtain the texture colour.
     //////////////////////////////////////////////////
     double intpart_a, intpart_b;
-    double *tp = (double *)img->rgbdata;
+    double *tp = (double *) img->rgbdata;
     a = max(-1e-6, a);
     b = max(-1e-6, b);
-    a = min(1+1e-6, a);
-    b = min(1+1e-6, b);
+    a = min(1 + 1e-6, a);
+    b = min(1 + 1e-6, b);
 
-    modf(a * (img->sx-1), &intpart_a);
-    modf(b * (img->sy-1), &intpart_b);
+    modf(a * (img->sx - 1), &intpart_a);
+    modf(b * (img->sy - 1), &intpart_b);
 
     *(alpha) = *(tp + (int) intpart_a + ((int) intpart_b * img->sx));
 }
@@ -916,8 +914,8 @@ void addAreaLight(double sx, double sy, double nx, double ny, double nz, \
         RotateY(areaLS, ny);
         RotateZ(areaLS, nz);
         Translate(areaLS, tx, ty, tz);
-        invert(&areaLS->T[0][0],&areaLS->Tinv[0][0]);
-        insertObject(areaLS,o_list);
+        invert(&areaLS->T[0][0], &areaLS->Tinv[0][0]);
+        insertObject(areaLS, o_list);
     }
 }
 
@@ -1541,7 +1539,7 @@ void tbn_transform(struct point3D *n, struct point3D *tangent, struct point3D *m
     double TBN[4][4] = {{tangent->px, binormal->px, n->px, 0},
                         {tangent->py, binormal->py, n->py, 0},
                         {tangent->pz, binormal->pz, n->pz, 0},
-                        {0, 0, 0, 1}};
+                        {0,           0,            0,     1}};
     matVecMult(TBN, model);
     normalize(model);
     free(binormal);
